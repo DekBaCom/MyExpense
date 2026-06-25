@@ -11,6 +11,7 @@ import ExpenseList from '../components/ExpenseList'
 import IncomeList from '../components/IncomeList'
 import ExpenseForm from '../components/ExpenseForm'
 import IncomeForm from '../components/IncomeForm'
+import UpcomingPaymentsCard from '../components/UpcomingPaymentsCard'
 import clsx from 'clsx'
 
 function fmt(n: number) {
@@ -79,49 +80,62 @@ export default function DashboardPage() {
         <div className="text-center py-16 text-gray-400 animate-pulse">กำลังโหลด...</div>
       ) : data ? (
         <>
-          {/* Summary: Income / Expense / Net */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white rounded-2xl p-5 border border-gray-100">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center text-lg">📥</div>
-                <p className="text-sm text-gray-500">รายรับ</p>
+          {/* Summary: Available (prev month income) / Expense / Net / This month income */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            {/* Available = previous month income (funds available for this month's bills) */}
+            <div className="bg-white rounded-2xl p-4 border border-gray-100">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center text-base">🏦</div>
+                <p className="text-xs text-gray-500">เงินตั้งต้น</p>
               </div>
-              <p className="text-2xl sm:text-3xl font-bold text-emerald-600">
-                +฿{fmt(data.total_income)}
+              <p className="text-xl sm:text-2xl font-bold text-sky-700">
+                ฿{fmt(data.prev_month_income)}
               </p>
+              <p className="text-[10px] text-gray-400 mt-0.5">รายรับเดือนก่อน</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-5 border border-gray-100">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center text-lg">📤</div>
-                <p className="text-sm text-gray-500">รายจ่าย</p>
+            <div className="bg-white rounded-2xl p-4 border border-gray-100">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-base">📤</div>
+                <p className="text-xs text-gray-500">รายจ่าย</p>
               </div>
-              <p className="text-2xl sm:text-3xl font-bold text-red-600">
+              <p className="text-xl sm:text-2xl font-bold text-red-600">
                 −฿{fmt(data.total_spent)}
               </p>
+              <p className="text-[10px] text-gray-400 mt-0.5">เดือนนี้</p>
             </div>
 
             <div className={clsx(
-              'rounded-2xl p-5 border-2',
-              netPositive
-                ? 'bg-emerald-50 border-emerald-200'
-                : 'bg-red-50 border-red-200'
+              'rounded-2xl p-4 border-2',
+              netPositive ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'
             )}>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-1">
                 <div className={clsx(
-                  'w-9 h-9 rounded-xl flex items-center justify-center text-lg',
+                  'w-8 h-8 rounded-lg flex items-center justify-center text-base',
                   netPositive ? 'bg-emerald-200' : 'bg-red-200'
                 )}>
                   {netPositive ? '💰' : '⚠️'}
                 </div>
-                <p className="text-sm text-gray-700 font-medium">คงเหลือ</p>
+                <p className="text-xs text-gray-700 font-medium">คงเหลือ</p>
               </div>
               <p className={clsx(
-                'text-2xl sm:text-3xl font-bold',
+                'text-xl sm:text-2xl font-bold',
                 netPositive ? 'text-emerald-700' : 'text-red-700'
               )}>
                 {netPositive ? '' : '−'}฿{fmt(Math.abs(data.net_balance))}
               </p>
+              <p className="text-[10px] text-gray-500 mt-0.5">ตั้งต้น − จ่าย</p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-4 border border-gray-100">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-base">📥</div>
+                <p className="text-xs text-gray-500">รายรับเข้า</p>
+              </div>
+              <p className="text-xl sm:text-2xl font-bold text-emerald-600">
+                +฿{fmt(data.total_income)}
+              </p>
+              <p className="text-[10px] text-gray-400 mt-0.5">สำหรับเดือนหน้า</p>
             </div>
           </div>
 
@@ -153,6 +167,9 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
+
+          {/* Upcoming bills */}
+          <UpcomingPaymentsCard month={month} />
 
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

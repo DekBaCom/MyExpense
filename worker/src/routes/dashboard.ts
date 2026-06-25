@@ -5,9 +5,16 @@ import { authMiddleware } from '../middleware/auth'
 const dashboard = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 dashboard.use('*', authMiddleware)
 
+function previousMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  const d = new Date(y, m - 2, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 dashboard.get('/', async (c) => {
   const userId = c.get('userId')
   const month = c.req.query('month') ?? new Date().toISOString().slice(0, 7)
+  const prevMonth = previousMonth(month)
 
   const cacheKey = `dashboard:${userId}:${month}`
   const cached = await c.env.SESSIONS.get(cacheKey)
@@ -18,6 +25,7 @@ dashboard.get('/', async (c) => {
   const [
     totalSpentRow,
     totalIncomeRow,
+    prevIncomeRow,
     byCategory,
     byIncomeCategory,
     byMember,
@@ -39,6 +47,14 @@ dashboard.get('/', async (c) => {
        WHERE user_id = ? AND strftime('%Y-%m', date) = ?`
     )
       .bind(userId, month)
+      .first<{ total: number }>(),
+
+    // Previous month income (used as available funds for this month)
+    c.env.DB.prepare(
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM incomes
+       WHERE user_id = ? AND strftime('%Y-%m', date) = ?`
+    )
+      .bind(userId, prevMonth)
       .first<{ total: number }>(),
 
     // Spending by category (parent categories only)
@@ -176,12 +192,15 @@ dashboard.get('/', async (c) => {
 
   const totalSpent = totalSpentRow?.total ?? 0
   const totalIncome = totalIncomeRow?.total ?? 0
+  const prevIncome = prevIncomeRow?.total ?? 0
 
   const data: DashboardData = {
     month,
     total_spent: totalSpent,
     total_income: totalIncome,
-    net_balance: totalIncome - totalSpent,
+    prev_month_income: prevIncome,
+    // Net balance pattern: previous month income pays for this month's bills
+    net_balance: prevIncome - totalSpent,
     total_budget: totalBudgetRow?.total_budget ?? 0,
     by_category: categoriesWithPct,
     by_income_category: byIncomeCategory.results,

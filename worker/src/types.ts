@@ -15,6 +15,7 @@ export type Variables = {
   userName: string
   userPicture: string
   isOwner: boolean
+  role: MemberRole
 }
 
 export type SessionData = {
@@ -23,7 +24,8 @@ export type SessionData = {
   email: string
   name: string
   picture: string
-  isOwner: boolean
+  isOwner: boolean        // kept for backward compat; derived from role === 'owner'
+  role: MemberRole
 }
 
 export type User = {
@@ -35,6 +37,8 @@ export type User = {
   created_at: string
 }
 
+export type MemberRole = 'owner' | 'admin' | 'member'
+
 export type Member = {
   id: number
   user_id: number
@@ -43,7 +47,22 @@ export type Member = {
   color: string
   emoji: string
   is_owner: number
+  role: MemberRole
   created_at: string
+}
+
+export type LineRecipient = {
+  id: number
+  user_id: number
+  member_id: number | null
+  label: string
+  channel_token: string
+  line_user_id: string
+  notify_on_add: number
+  notify_on_budget_alert: number
+  notify_on_recurring: number
+  created_at: string
+  updated_at: string
 }
 
 export type Category = {
@@ -129,11 +148,63 @@ export type IncomeSummary = {
   received: number
 }
 
+export type RecurringPayment = {
+  id: number
+  user_id: number
+  member_id: number | null
+  category_id: number
+  name: string
+  amount: number
+  due_day: number
+  payment_method: 'cash' | 'transfer' | 'credit' | 'qr'
+  notify_days_before: number
+  is_active: number
+  created_at: string
+  updated_at: string
+  // Joined
+  category_name?: string
+  category_icon?: string
+  category_color?: string
+  member_name?: string
+  member_emoji?: string
+}
+
+export type RecurringPaymentLog = {
+  id: number
+  recurring_id: number
+  month: string
+  status: 'pending' | 'paid' | 'skipped'
+  expense_id: number | null
+  paid_at: string | null
+  reminder_sent_at: string | null
+  overdue_alert_at: string | null
+}
+
+export type UpcomingPaymentItem = RecurringPayment & {
+  due_date: string                                   // computed YYYY-MM-DD
+  log_id: number | null
+  status: 'pending' | 'paid' | 'skipped' | 'overdue'
+  paid_at: string | null
+  expense_id: number | null
+}
+
+export type UpcomingPayments = {
+  month: string
+  total_due: number
+  total_paid: number
+  total_pending: number
+  paid_count: number
+  pending_count: number
+  overdue_count: number
+  items: UpcomingPaymentItem[]
+}
+
 export type DashboardData = {
   month: string
   total_spent: number
   total_income: number
-  net_balance: number
+  prev_month_income: number
+  net_balance: number      // = prev_month_income - total_spent
   total_budget: number
   by_category: CategorySummary[]
   by_income_category: IncomeSummary[]

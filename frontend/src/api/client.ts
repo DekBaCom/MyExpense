@@ -50,12 +50,38 @@ export const api = {
 
   // Members
   getMembers: () => request<import('../types').Member[]>('/members'),
-  createMember: (body: { name: string; email?: string | null; color: string; emoji: string }) =>
+  createMember: (body: { name: string; email?: string | null; color: string; emoji: string; role?: import('../types').MemberRole }) =>
     request<{ id: number }>('/members', { method: 'POST', body: JSON.stringify(body) }),
-  updateMember: (id: number, body: Partial<{ name: string; email: string | null; color: string; emoji: string }>) =>
+  updateMember: (id: number, body: Partial<{ name: string; email: string | null; color: string; emoji: string; role: import('../types').MemberRole }>) =>
     request<{ ok: boolean }>(`/members/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteMember: (id: number) =>
     request<{ ok: boolean }>(`/members/${id}`, { method: 'DELETE' }),
+
+  // LINE recipients (multi)
+  getLineRecipients: () =>
+    request<import('../types').LineRecipient[]>('/settings/line'),
+  createLineRecipient: (body: {
+    member_id?: number | null
+    label: string
+    channel_token: string
+    line_user_id: string
+    notify_on_add?: boolean
+    notify_on_budget_alert?: boolean
+    notify_on_recurring?: boolean
+  }) => request<{ id: number }>('/settings/line', { method: 'POST', body: JSON.stringify(body) }),
+  updateLineRecipient: (id: number, body: Partial<{
+    label: string
+    member_id: number | null
+    channel_token: string
+    line_user_id: string
+    notify_on_add: boolean
+    notify_on_budget_alert: boolean
+    notify_on_recurring: boolean
+  }>) => request<{ ok: boolean }>(`/settings/line/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteLineRecipient: (id: number) =>
+    request<{ ok: boolean }>(`/settings/line/${id}`, { method: 'DELETE' }),
+  testLineRecipient: (id: number) =>
+    request<{ ok: boolean }>(`/settings/line/${id}/test`, { method: 'POST' }),
 
   // Budgets
   getBudgets: (month: string) =>
@@ -89,19 +115,6 @@ export const api = {
   deleteReceipt: (expenseId: number) =>
     request<{ ok: boolean }>(`/receipts/${expenseId}`, { method: 'DELETE' }),
 
-  // LINE Settings
-  getLineSettings: () =>
-    request<import('../types').LineSettings>('/settings/line'),
-  saveLineSettings: (body: {
-    channel_token: string | null
-    line_user_id: string | null
-    notify_on_add: boolean
-    notify_on_budget_alert: boolean
-  }) =>
-    request<{ ok: boolean }>('/settings/line', { method: 'PUT', body: JSON.stringify(body) }),
-  testLineNotification: () =>
-    request<{ ok: boolean }>('/settings/line/test', { method: 'POST' }),
-
   // Incomes
   getIncomes: (params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString()
@@ -119,4 +132,24 @@ export const api = {
   // Income categories
   getIncomeCategories: () =>
     request<import('../types').IncomeCategory[]>('/income-categories'),
+
+  // Recurring payments
+  getRecurring: () =>
+    request<import('../types').RecurringPayment[]>('/recurring'),
+  getUpcomingPayments: (month?: string) =>
+    request<import('../types').UpcomingPayments>(`/recurring/upcoming${month ? `?month=${month}` : ''}`),
+  createRecurring: (body: import('../types').RecurringFormData) =>
+    request<{ id: number }>('/recurring', { method: 'POST', body: JSON.stringify(body) }),
+  updateRecurring: (id: number, body: Partial<import('../types').RecurringFormData>) =>
+    request<{ ok: boolean }>(`/recurring/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteRecurring: (id: number) =>
+    request<{ ok: boolean }>(`/recurring/${id}`, { method: 'DELETE' }),
+  payRecurring: (id: number, body: { month: string; date?: string; amount?: number; note?: string; create_expense?: boolean }) =>
+    request<{ log_id: number; expense_id: number | null }>(`/recurring/${id}/pay`, {
+      method: 'POST', body: JSON.stringify(body),
+    }),
+  unpayRecurring: (id: number, month: string) =>
+    request<{ ok: boolean }>(`/recurring/${id}/unpay`, { method: 'POST', body: JSON.stringify({ month }) }),
+  checkRecurringNow: () =>
+    request<{ users_processed: number; messages_sent: number }>('/recurring/check-now', { method: 'POST' }),
 }

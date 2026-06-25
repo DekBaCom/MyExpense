@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import type { Bindings, Variables, Expense, LineSettings } from '../types'
+import type { Bindings, Variables, Expense, LineRecipient } from '../types'
 import { authMiddleware } from '../middleware/auth'
 import { sendLineMessage, buildExpenseMessage, buildBudgetAlertMessage } from '../lib/line'
 
@@ -176,17 +176,21 @@ async function sendLineNotifications(
   expenseId: number,
   body: { amount: number; date: string; category_id: number; member_id?: number | null; payment_method: string; note?: string | null }
 ): Promise<void> {
-  const lineRow = await env.DB.prepare(
-    'SELECT channel_token, line_user_id, notify_on_add, notify_on_budget_alert FROM line_settings WHERE user_id = ?'
+  // Fetch ALL recipients in the household
+  const recipients = await env.DB.prepare(
+    `SELECT channel_token, line_user_id, notify_on_add, notify_on_budget_alert
+     FROM line_recipients WHERE user_id = ?`
   )
     .bind(userId)
-    .first<LineSettings>()
+    .all<LineRecipient>()
 
-  if (!lineRow?.channel_token || !lineRow?.line_user_id) return
+  if (recipients.results.length === 0) return
 
   const month = body.date.slice(0, 7)
+  const wantsAdd = recipients.results.filter(r => r.notify_on_add === 1)
+  const wantsBudget = recipients.results.filter(r => r.notify_on_budget_alert === 1)
 
-  if (lineRow.notify_on_add === 1) {
+  if (wantsAdd.length > 0) {
     // Get category + member + monthly total for message
     const [catRow, memberRow, totalRow] = await Promise.all([
       env.DB.prepare('SELECT name, icon FROM categories WHERE id = ?')
@@ -215,10 +219,12 @@ async function sendLineNotifications(
       totalSpentThisMonth: totalRow?.total ?? body.amount,
     })
 
-    await sendLineMessage(lineRow.channel_token, lineRow.line_user_id, msg)
+    await Promise.all(
+      wantsAdd.map(r => sendLineMessage(r.channel_token, r.line_user_id, msg))
+    )
   }
 
-  if (lineRow.notify_on_budget_alert === 1) {
+  if (wantsBudget.length > 0) {
     // Check if category budget is exceeded
     const alertRow = await env.DB.prepare(
       `SELECT
@@ -248,7 +254,9 @@ async function sendLineNotifications(
           spent: alertRow.spent,
           budget: alertRow.budget,
         })
-        await sendLineMessage(lineRow.channel_token, lineRow.line_user_id, alertMsg)
+        await Promise.all(
+          wantsBudget.map(r => sendLineMessage(r.channel_token, r.line_user_id, alertMsg))
+        )
       }
     }
   }

@@ -85,43 +85,39 @@ auth.get('/callback', async (c) => {
   }
 
   // Check if this email matches a member from ANOTHER user's household
-  // (i.e., the owner has invited this email as a family member)
   const invitedMember = await c.env.DB.prepare(
-    `SELECT id, user_id, is_owner FROM members
+    `SELECT id, user_id, role FROM members
      WHERE email = ? AND user_id != ?
-     ORDER BY is_owner DESC, created_at ASC
+     ORDER BY (role = 'owner') DESC, created_at ASC
      LIMIT 1`
   )
     .bind(googleUser.email, user.id)
-    .first<{ id: number; user_id: number; is_owner: number }>()
+    .first<{ id: number; user_id: number; role: 'owner' | 'admin' | 'member' }>()
 
   let householdUserId: number
   let memberId: number | null
-  let isOwner: boolean
+  let role: 'owner' | 'admin' | 'member'
 
   if (invitedMember) {
-    // Logged-in user is a household member (invited by another owner)
     householdUserId = invitedMember.user_id
     memberId = invitedMember.id
-    isOwner = false
+    role = invitedMember.role
   } else {
-    // This user is their own household owner
     householdUserId = user.id
-    isOwner = true
+    role = 'owner'
 
-    // Create default member (owner) if first login
     const existingOwner = await c.env.DB.prepare(
-      'SELECT id FROM members WHERE user_id = ? AND is_owner = 1 LIMIT 1'
+      'SELECT id FROM members WHERE user_id = ? AND role = ? LIMIT 1'
     )
-      .bind(user.id)
+      .bind(user.id, 'owner')
       .first<{ id: number }>()
 
     if (existingOwner) {
       memberId = existingOwner.id
     } else {
       const inserted = await c.env.DB.prepare(
-        `INSERT INTO members (user_id, name, email, color, emoji, is_owner)
-         VALUES (?, ?, ?, '#6366f1', '👤', 1)
+        `INSERT INTO members (user_id, name, email, color, emoji, is_owner, role)
+         VALUES (?, ?, ?, '#6366f1', '👤', 1, 'owner')
          RETURNING id`
       )
         .bind(user.id, googleUser.name.split(' ')[0], googleUser.email)
@@ -130,7 +126,6 @@ auth.get('/callback', async (c) => {
     }
   }
 
-  // Create session
   const sessionId = generateSessionId()
   const sessionData: SessionData = {
     userId: householdUserId,
@@ -138,7 +133,8 @@ auth.get('/callback', async (c) => {
     email: user.email,
     name: user.name,
     picture: user.picture ?? '',
-    isOwner,
+    isOwner: role === 'owner',
+    role,
   }
 
   await c.env.SESSIONS.put(`session:${sessionId}`, JSON.stringify(sessionData), {
@@ -177,6 +173,7 @@ auth.get('/me', authMiddleware, async (c) => {
     member_emoji: memberInfo.emoji ?? '👤',
     member_color: memberInfo.color ?? '#6366f1',
     is_owner: isOwner,
+    role: c.get('role'),
   })
 })
 

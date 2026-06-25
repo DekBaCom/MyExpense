@@ -1,229 +1,336 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
+import { useAuth } from '../hooks/useAuth'
+import { useMembers } from '../hooks/useExpenses'
+import type { LineRecipient } from '../types'
+import clsx from 'clsx'
+
+type FormData = {
+  member_id: number | null
+  label: string
+  channel_token: string
+  line_user_id: string
+  notify_on_add: boolean
+  notify_on_budget_alert: boolean
+  notify_on_recurring: boolean
+}
+
+const emptyForm: FormData = {
+  member_id: null,
+  label: '',
+  channel_token: '',
+  line_user_id: '',
+  notify_on_add: true,
+  notify_on_budget_alert: true,
+  notify_on_recurring: true,
+}
 
 export default function SettingsPage() {
   const qc = useQueryClient()
-  const { data: lineSettings, isLoading } = useQuery({
-    queryKey: ['settings', 'line'],
-    queryFn: api.getLineSettings,
+  const { data: user } = useAuth()
+  const { data: members = [] } = useMembers()
+  const [editing, setEditing] = useState<LineRecipient | null>(null)
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState<FormData>(emptyForm)
+  const [error, setError] = useState('')
+  const [testStatus, setTestStatus] = useState<{ id: number; ok: boolean; msg: string } | null>(null)
+
+  const { data: recipients = [], isLoading } = useQuery({
+    queryKey: ['line-recipients'],
+    queryFn: api.getLineRecipients,
   })
-
-  const [token, setToken] = useState('')
-  const [userId, setUserId] = useState('')
-  const [notifyOnAdd, setNotifyOnAdd] = useState(true)
-  const [notifyOnBudget, setNotifyOnBudget] = useState(true)
-  const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
-  const [testMsg, setTestMsg] = useState('')
-  const [saveMsg, setSaveMsg] = useState('')
-
-  useEffect(() => {
-    if (lineSettings) {
-      setToken(lineSettings.channel_token ?? '')
-      setUserId(lineSettings.line_user_id ?? '')
-      setNotifyOnAdd(lineSettings.notify_on_add)
-      setNotifyOnBudget(lineSettings.notify_on_budget_alert)
-    }
-  }, [lineSettings])
 
   const save = useMutation({
-    mutationFn: () =>
-      api.saveLineSettings({
-        channel_token: token || null,
-        line_user_id: userId || null,
-        notify_on_add: notifyOnAdd,
-        notify_on_budget_alert: notifyOnBudget,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['settings', 'line'] })
-      setSaveMsg('บันทึกแล้ว ✓')
-      setTimeout(() => setSaveMsg(''), 2500)
+    mutationFn: async () => {
+      if (editing) {
+        return api.updateLineRecipient(editing.id, form)
+      }
+      return api.createLineRecipient(form)
     },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['line-recipients'] })
+      setShowAdd(false)
+      setEditing(null)
+      setForm(emptyForm)
+      setError('')
+    },
+    onError: (e: Error) => setError(e.message),
   })
 
-  async function handleTest() {
-    setTestStatus('loading')
-    setTestMsg('')
+  const remove = useMutation({
+    mutationFn: (id: number) => api.deleteLineRecipient(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['line-recipients'] }),
+  })
+
+  async function handleTest(r: LineRecipient) {
+    setTestStatus({ id: r.id, ok: false, msg: 'กำลังส่ง...' })
     try {
-      await api.testLineNotification()
-      setTestStatus('ok')
-      setTestMsg('ส่งข้อความทดสอบสำเร็จ! ตรวจสอบ LINE ของคุณ')
+      await api.testLineRecipient(r.id)
+      setTestStatus({ id: r.id, ok: true, msg: 'ส่งสำเร็จ! ตรวจสอบ LINE' })
     } catch (e) {
-      setTestStatus('error')
-      setTestMsg((e as Error).message)
+      setTestStatus({ id: r.id, ok: false, msg: (e as Error).message })
     }
   }
 
+  function openEdit(r: LineRecipient) {
+    setEditing(r)
+    setShowAdd(false)
+    setForm({
+      member_id: r.member_id,
+      label: r.label,
+      channel_token: r.channel_token,
+      line_user_id: r.line_user_id,
+      notify_on_add: r.notify_on_add,
+      notify_on_budget_alert: r.notify_on_budget_alert,
+      notify_on_recurring: r.notify_on_recurring,
+    })
+    setError('')
+  }
+
+  function openAdd() {
+    setEditing(null)
+    setForm(emptyForm)
+    setShowAdd(true)
+    setError('')
+  }
+
+  const isModalOpen = showAdd || editing !== null
+
   return (
-    <div className="max-w-xl mx-auto space-y-8">
+    <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">ตั้งค่า</h1>
-        <p className="text-gray-500 text-sm mt-0.5">จัดการการแจ้งเตือนและการเชื่อมต่อ</p>
+        <p className="text-gray-500 text-sm mt-0.5">การแจ้งเตือนและการเชื่อมต่อ LINE</p>
       </div>
 
-      {/* LINE Notification Card */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-green-500 flex items-center justify-center">
-            <svg viewBox="0 0 48 48" className="w-6 h-6" fill="white">
-              <path d="M24 4C12.95 4 4 11.89 4 21.6c0 5.78 3.2 10.91 8.2 14.28-.37 1.36-1.32 4.93-1.52 5.7-.24.97.35 1.6 1.16 1.05l6.73-4.43C19.9 38.47 21.93 38.7 24 38.7c11.05 0 20-7.89 20-17.1C44 11.89 35.05 4 24 4z"/>
-            </svg>
-          </div>
-          <div>
-            <h2 className="font-semibold text-gray-900">LINE Notification</h2>
-            <p className="text-xs text-gray-500">รับแจ้งเตือนค่าใช้จ่ายผ่าน LINE</p>
-          </div>
-          {lineSettings?.configured && (
-            <span className="ml-auto text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium">
-              เชื่อมต่อแล้ว
+      {/* Profile */}
+      {user && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">โปรไฟล์ของคุณ</h2>
+          <div className="flex items-center gap-3">
+            {user.picture ? (
+              <img src={user.picture} alt="" className="w-12 h-12 rounded-full" />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
+                {user.name[0]}
+              </div>
+            )}
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-900">{user.member_name}</p>
+              <p className="text-xs text-gray-500">{user.email}</p>
+            </div>
+            <span className={clsx(
+              'text-xs px-2.5 py-1 rounded-full font-medium',
+              user.role === 'owner' && 'bg-indigo-100 text-indigo-700',
+              user.role === 'admin' && 'bg-purple-100 text-purple-700',
+              user.role === 'member' && 'bg-gray-100 text-gray-600',
+            )}>
+              {user.role === 'owner' ? '👑 เจ้าของ' : user.role === 'admin' ? '⚙️ Admin' : '👤 Member'}
             </span>
-          )}
+          </div>
+        </div>
+      )}
+
+      {/* LINE Recipients */}
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-green-500 flex items-center justify-center">
+              <svg viewBox="0 0 48 48" className="w-6 h-6" fill="white">
+                <path d="M24 4C12.95 4 4 11.89 4 21.6c0 5.78 3.2 10.91 8.2 14.28-.37 1.36-1.32 4.93-1.52 5.7-.24.97.35 1.6 1.16 1.05l6.73-4.43C19.9 38.47 21.93 38.7 24 38.7c11.05 0 20-7.89 20-17.1C44 11.89 35.05 4 24 4z"/>
+              </svg>
+            </div>
+            <div>
+              <h2 className="font-semibold text-gray-900">LINE แจ้งเตือน</h2>
+              <p className="text-xs text-gray-500">{recipients.length} ผู้รับ</p>
+            </div>
+          </div>
+          <button
+            onClick={openAdd}
+            className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-xl font-medium hover:bg-indigo-700"
+          >
+            + เพิ่ม
+          </button>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        <div className="p-5 space-y-3">
           {isLoading ? (
-            <div className="text-center py-8 text-gray-400 animate-pulse">กำลังโหลด...</div>
+            <p className="text-center py-6 text-sm text-gray-400 animate-pulse">กำลังโหลด...</p>
+          ) : recipients.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-3xl mb-2">📱</p>
+              <p className="text-sm text-gray-500">ยังไม่มีผู้รับการแจ้งเตือน</p>
+              <p className="text-xs text-gray-400 mt-1">เพิ่มผู้รับเพื่อให้ระบบส่งข้อความผ่าน LINE</p>
+            </div>
           ) : (
-            <>
-              {/* Setup Guide */}
-              <div className="bg-green-50 rounded-xl p-4 text-sm text-green-800 space-y-1.5">
-                <p className="font-semibold">วิธีตั้งค่า LINE Messaging API</p>
-                <ol className="list-decimal list-inside space-y-1 text-green-700">
-                  <li>ไปที่ <a href="https://developers.line.biz/console/" target="_blank" rel="noopener noreferrer" className="underline font-medium">LINE Developers Console</a></li>
-                  <li>สร้าง Provider → สร้าง Channel (Messaging API)</li>
-                  <li>ไปที่ Channel → Messaging API → ออก <strong>Channel access token</strong></li>
-                  <li>เพิ่ม Bot เป็นเพื่อน แล้วส่งข้อความอะไรก็ได้ 1 ครั้ง</li>
-                  <li>ดึง <strong>User ID</strong> จาก Webhook หรือ LINE Official Account Manager</li>
-                </ol>
-              </div>
-
-              {/* Token */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Channel Access Token
-                </label>
-                <input
-                  type="password"
-                  value={token}
-                  onChange={e => setToken(e.target.value)}
-                  placeholder={lineSettings?.configured ? '••••••••••••••••' : 'วาง token ที่นี่'}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl font-mono text-sm"
-                  autoComplete="off"
-                />
-                <p className="mt-1 text-xs text-gray-400">
-                  {lineSettings?.configured
-                    ? 'Token ถูกตั้งค่าแล้ว ล้างค่าและพิมพ์ใหม่เพื่อเปลี่ยน'
-                    : 'ได้จาก LINE Developers Console → Channel → Messaging API'}
-                </p>
-              </div>
-
-              {/* User ID */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  LINE User ID
-                </label>
-                <input
-                  type="text"
-                  value={userId}
-                  onChange={e => setUserId(e.target.value)}
-                  placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl font-mono text-sm"
-                />
-                <p className="mt-1 text-xs text-gray-400">
-                  ขึ้นต้นด้วย "U" ความยาว 33 ตัวอักษร
-                </p>
-              </div>
-
-              {/* Toggle: notify on add */}
-              <div className="space-y-3 pt-1">
-                <label className="flex items-center justify-between gap-3 cursor-pointer">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">แจ้งเตือนทุกครั้งที่บันทึกรายจ่าย</p>
-                    <p className="text-xs text-gray-400">ส่งข้อความสรุปรายการทันที</p>
+            recipients.map(r => (
+              <div key={r.id} className="border border-gray-100 rounded-xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 flex items-center gap-2">
+                      {r.member_emoji && <span>{r.member_emoji}</span>}
+                      {r.label}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5 font-mono">User: {r.line_user_id.slice(0, 12)}...</p>
+                    <div className="flex gap-2 mt-2 text-xs flex-wrap">
+                      {r.notify_on_add && <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">บันทึก</span>}
+                      {r.notify_on_budget_alert && <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">เกินงบ</span>}
+                      {r.notify_on_recurring && <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">บิลรายเดือน</span>}
+                    </div>
+                    {testStatus?.id === r.id && (
+                      <p className={clsx(
+                        'mt-2 text-xs',
+                        testStatus.ok ? 'text-green-600' : 'text-red-600'
+                      )}>
+                        {testStatus.ok ? '✅ ' : '❌ '}{testStatus.msg}
+                      </p>
+                    )}
                   </div>
-                  <Toggle value={notifyOnAdd} onChange={setNotifyOnAdd} />
-                </label>
-
-                <label className="flex items-center justify-between gap-3 cursor-pointer">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">แจ้งเตือนเมื่อเกินงบประมาณ</p>
-                    <p className="text-xs text-gray-400">แจ้งเมื่อค่าใช้จ่ายหมวดใดหมวดหนึ่งเกิน 100%</p>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => handleTest(r)}
+                      className="p-2 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-600"
+                      title="ทดสอบส่ง"
+                    >
+                      📨
+                    </button>
+                    <button
+                      onClick={() => openEdit(r)}
+                      className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => confirm(`ลบ "${r.label}"?`) && remove.mutate(r.id)}
+                      className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500"
+                    >
+                      🗑️
+                    </button>
                   </div>
-                  <Toggle value={notifyOnBudget} onChange={setNotifyOnBudget} />
-                </label>
-              </div>
-
-              {/* Test result */}
-              {testMsg && (
-                <div className={`px-4 py-3 rounded-xl text-sm ${
-                  testStatus === 'ok'
-                    ? 'bg-green-50 text-green-700 border border-green-200'
-                    : 'bg-red-50 text-red-700 border border-red-200'
-                }`}>
-                  {testStatus === 'ok' ? '✅ ' : '❌ '}{testMsg}
                 </div>
-              )}
-
-              {/* Buttons */}
-              <div className="flex gap-3 pt-1">
-                <button
-                  onClick={handleTest}
-                  disabled={testStatus === 'loading' || !lineSettings?.configured}
-                  className="flex-1 py-2.5 border border-green-500 text-green-600 rounded-xl font-medium hover:bg-green-50 disabled:opacity-40 transition-colors text-sm"
-                >
-                  {testStatus === 'loading' ? 'กำลังส่ง...' : '📨 ทดสอบส่งข้อความ'}
-                </button>
-                <button
-                  onClick={() => save.mutate()}
-                  disabled={save.isPending}
-                  className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-60 transition-colors text-sm"
-                >
-                  {save.isPending ? 'กำลังบันทึก...' : 'บันทึก'}
-                </button>
               </div>
-              {saveMsg && (
-                <p className="text-center text-sm text-green-600 font-medium">{saveMsg}</p>
-              )}
-            </>
+            ))
           )}
         </div>
       </div>
 
-      {/* Sample notification preview */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">ตัวอย่างข้อความที่จะได้รับ</h3>
-        <div className="bg-[#06C755]/10 rounded-xl p-4 font-mono text-sm text-gray-700 whitespace-pre-line leading-relaxed">
-          {`💸 บันทึกรายจ่ายใหม่
-━━━━━━━━━━━━━━━
-🍔 อาหารนอกบ้าน
-💰 ฿250.00
-📅 25 มิ.ย. 2569
-💵 เงินสด
-👤 สมชาย
-📝 ข้าวกลางวัน
-━━━━━━━━━━━━━━━
-📊 ยอดรวมเดือนนี้: ฿8,450.00`}
-        </div>
+      {/* Setup guide */}
+      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 text-sm space-y-2">
+        <p className="font-semibold text-blue-900">📚 วิธีตั้งค่า LINE Messaging API</p>
+        <ol className="list-decimal list-inside space-y-1 text-blue-800">
+          <li>ไปที่ <a className="underline font-medium" href="https://developers.line.biz/console/" target="_blank" rel="noopener noreferrer">LINE Developers Console</a></li>
+          <li>สร้าง Channel (Messaging API) → ออก <strong>Channel access token</strong></li>
+          <li>เพิ่ม Bot เป็นเพื่อนใน LINE ของแต่ละคน → ส่งข้อความใดก็ได้ 1 ครั้ง</li>
+          <li>ดึง <strong>User ID</strong> ของแต่ละคนจาก Webhook event</li>
+          <li>เพิ่มแต่ละคนเป็นผู้รับการแจ้งเตือนด้านบน</li>
+        </ol>
+        <p className="text-xs text-blue-700">💡 เคล็ดลับ: ทุกคนใช้ Channel Access Token เดียวกันได้ — แตกต่างกันแค่ User ID</p>
       </div>
-    </div>
-  )
-}
 
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!value)}
-      className={`relative inline-flex w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
-        value ? 'bg-indigo-600' : 'bg-gray-200'
-      }`}
-    >
-      <span
-        className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform mt-1 ${
-          value ? 'translate-x-6' : 'translate-x-1'
-        }`}
-      />
-    </button>
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editing ? 'แก้ไขผู้รับ' : 'เพิ่มผู้รับ LINE'}
+              </h2>
+              <button onClick={() => { setShowAdd(false); setEditing(null) }} className="text-gray-400 text-xl">✕</button>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อเรียก</label>
+              <input
+                type="text"
+                value={form.label}
+                onChange={e => setForm(p => ({ ...p, label: e.target.value }))}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm"
+                placeholder="เช่น เลย์, ภรรยา, แม่"
+                maxLength={50}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ผูกกับสมาชิก (ไม่บังคับ)</label>
+              <select
+                value={form.member_id ?? ''}
+                onChange={e => setForm(p => ({ ...p, member_id: e.target.value ? Number(e.target.value) : null }))}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm"
+              >
+                <option value="">ไม่ผูก</option>
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>{m.emoji} {m.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Channel Access Token</label>
+              <input
+                type={editing ? 'text' : 'password'}
+                value={form.channel_token}
+                onChange={e => setForm(p => ({ ...p, channel_token: e.target.value }))}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl font-mono text-xs"
+                placeholder="วาง token ที่นี่"
+                autoComplete="off"
+              />
+              {editing && <p className="text-xs text-gray-400 mt-1">ขึ้น *** = ใช้ token เดิม ลบทิ้งและพิมพ์ใหม่เพื่อเปลี่ยน</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">LINE User ID</label>
+              <input
+                type="text"
+                value={form.line_user_id}
+                onChange={e => setForm(p => ({ ...p, line_user_id: e.target.value }))}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl font-mono text-xs"
+                placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              />
+            </div>
+
+            <div className="space-y-2 bg-gray-50 rounded-xl p-3">
+              <p className="text-sm font-medium text-gray-700 mb-1">รับแจ้งเตือนเมื่อ</p>
+              {[
+                { key: 'notify_on_add' as const,           label: 'บันทึกรายจ่ายใหม่' },
+                { key: 'notify_on_budget_alert' as const,  label: 'ใช้เกินงบประมาณ' },
+                { key: 'notify_on_recurring' as const,     label: 'บิลรายเดือนใกล้ครบกำหนด/เกินกำหนด' },
+              ].map(opt => (
+                <label key={opt.key} className="flex items-center justify-between text-sm cursor-pointer">
+                  <span className="text-gray-700">{opt.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => setForm(p => ({ ...p, [opt.key]: !p[opt.key] }))}
+                    className={clsx(
+                      'relative w-10 h-5 rounded-full transition-colors',
+                      form[opt.key] ? 'bg-indigo-600' : 'bg-gray-300'
+                    )}
+                  >
+                    <span className={clsx(
+                      'absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transform transition-transform',
+                      form[opt.key] && 'translate-x-5'
+                    )} />
+                  </button>
+                </label>
+              ))}
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={() => save.mutate()}
+              disabled={!form.label || !form.channel_token || !form.line_user_id || save.isPending}
+              className="w-full py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {save.isPending ? 'กำลังบันทึก...' : editing ? 'บันทึก' : 'เพิ่มผู้รับ'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

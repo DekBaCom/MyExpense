@@ -63,6 +63,27 @@ export function buildExpenseMessage(opts: {
   return lines.join('\n')
 }
 
+export function buildRecurringReminderMessage(opts: {
+  items: { name: string; amount: number; due_date: string; icon: string }[]
+  daysUntil: number  // 0 = due today, positive = upcoming, negative = overdue
+}): string {
+  const total = opts.items.reduce((s, i) => s + i.amount, 0)
+  const header = opts.daysUntil > 0
+    ? `🔔 บิลที่ต้องชำระใน ${opts.daysUntil} วัน`
+    : opts.daysUntil === 0
+      ? '⏰ บิลที่ครบกำหนดวันนี้'
+      : `🚨 บิลค้างชำระ ${Math.abs(opts.daysUntil)} วันแล้ว`
+
+  const lines = [header, '━━━━━━━━━━━━━━━']
+  for (const item of opts.items) {
+    lines.push(`${item.icon} ${item.name}`)
+    lines.push(`   ฿${item.amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} • ${formatDateTH(item.due_date)}`)
+  }
+  lines.push('━━━━━━━━━━━━━━━')
+  lines.push(`💰 รวม ฿${total.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`)
+  return lines.join('\n')
+}
+
 export function buildBudgetAlertMessage(opts: {
   icon: string
   categoryName: string

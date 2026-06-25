@@ -6,12 +6,13 @@ import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 
 const navItems = [
-  { to: '/',         icon: '📊', label: 'Dashboard' },
-  { to: '/incomes',  icon: '📥', label: 'รายรับ' },
-  { to: '/expenses', icon: '📝', label: 'รายจ่าย' },
-  { to: '/budget',   icon: '💰', label: 'งบประมาณ' },
-  { to: '/members',  icon: '👨‍👩‍👧', label: 'สมาชิก' },
-  { to: '/settings', icon: '⚙️', label: 'ตั้งค่า' },
+  { to: '/',          icon: '📊', label: 'Dashboard' },
+  { to: '/incomes',   icon: '📥', label: 'รายรับ' },
+  { to: '/expenses',  icon: '📝', label: 'รายจ่าย' },
+  { to: '/recurring', icon: '🔔', label: 'บิลรายเดือน' },
+  { to: '/budget',    icon: '💰', label: 'งบประมาณ' },
+  { to: '/members',   icon: '👨‍👩‍👧', label: 'สมาชิก' },
+  { to: '/settings',  icon: '⚙️', label: 'ตั้งค่า' },
 ]
 
 export default function Layout() {

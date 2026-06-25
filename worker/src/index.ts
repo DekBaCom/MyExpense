@@ -12,6 +12,7 @@ import receipts from './routes/receipts'
 import settings from './routes/settings'
 import incomes from './routes/incomes'
 import incomeCategories from './routes/income-categories'
+import recurring, { runDailyRecurringCheck } from './routes/recurring'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -40,6 +41,7 @@ app.route('/api/receipts', receipts)
 app.route('/api/settings', settings)
 app.route('/api/incomes', incomes)
 app.route('/api/income-categories', incomeCategories)
+app.route('/api/recurring', recurring)
 
 app.get('/api/health', (c) => c.json({ status: 'ok', ts: new Date().toISOString() }))
 
@@ -49,4 +51,14 @@ app.onError((err, c) => {
   return c.json({ error: 'Internal server error' }, 500)
 })
 
-export default app
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext): Promise<void> {
+    // Daily cron: check recurring payments and send LINE reminders
+    ctx.waitUntil(
+      runDailyRecurringCheck(env)
+        .then(r => console.log('recurring check:', r))
+        .catch(err => console.error('recurring check error:', err))
+    )
+  },
+}

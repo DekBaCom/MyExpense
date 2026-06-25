@@ -7,7 +7,10 @@ export type User = {
   member_emoji: string
   member_color: string
   is_owner: boolean
+  role: MemberRole
 }
+
+export type MemberRole = 'owner' | 'admin' | 'member'
 
 export type Member = {
   id: number
@@ -17,6 +20,21 @@ export type Member = {
   color: string
   emoji: string
   is_owner: number
+  role: MemberRole
+}
+
+export type LineRecipient = {
+  id: number
+  user_id: number
+  member_id: number | null
+  label: string
+  channel_token: string
+  line_user_id: string
+  notify_on_add: boolean
+  notify_on_budget_alert: boolean
+  notify_on_recurring: boolean
+  member_name?: string | null
+  member_emoji?: string | null
 }
 
 export type Category = {
@@ -134,6 +152,7 @@ export type DashboardData = {
   month: string
   total_spent: number
   total_income: number
+  prev_month_income: number
   net_balance: number
   total_budget: number
   by_category: CategorySummary[]
@@ -160,10 +179,52 @@ export const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: strin
   { value: 'qr',       label: 'QR Code',    icon: '📱' },
 ]
 
-export type LineSettings = {
-  channel_token: string | null
-  line_user_id: string | null
-  notify_on_add: boolean
-  notify_on_budget_alert: boolean
-  configured: boolean
+export type RecurringPayment = {
+  id: number
+  user_id: number
+  member_id: number | null
+  category_id: number
+  name: string
+  amount: number
+  due_day: number
+  payment_method: PaymentMethod
+  notify_days_before: number
+  is_active: number
+  created_at: string
+  updated_at: string
+  category_name?: string
+  category_icon?: string
+  category_color?: string
+  member_name?: string
+  member_emoji?: string
+}
+
+export type RecurringFormData = {
+  name: string
+  amount: number
+  category_id: number
+  due_day: number
+  member_id: number | null
+  payment_method: PaymentMethod
+  notify_days_before: number
+  is_active: boolean
+}
+
+export type UpcomingPaymentItem = RecurringPayment & {
+  due_date: string
+  log_id: number | null
+  status: 'pending' | 'paid' | 'skipped' | 'overdue'
+  paid_at: string | null
+  expense_id: number | null
+}
+
+export type UpcomingPayments = {
+  month: string
+  total_due: number
+  total_paid: number
+  total_pending: number
+  paid_count: number
+  pending_count: number
+  overdue_count: number
+  items: UpcomingPaymentItem[]
 }

@@ -26,6 +26,10 @@ id = "bb88bdfe34df4e0da8482b9684625255"
 [dev]
 port = 8787
 
+# Daily cron: run at 02:00 UTC = 09:00 Bangkok
+[triggers]
+crons = ["0 2 * * *"]
+
 [[r2_buckets]]
 binding = "RECEIPTS"
 bucket_name = "myexpense-receipts"

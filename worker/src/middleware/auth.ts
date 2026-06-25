@@ -23,9 +23,25 @@ export const authMiddleware = createMiddleware<{
   c.set('userName', session.name)
   c.set('userPicture', session.picture ?? '')
   c.set('isOwner', session.isOwner ?? true)
+  c.set('role', session.role ?? (session.isOwner ? 'owner' : 'admin'))
 
   await next()
 })
+
+import { createMiddleware as createMW } from 'hono/factory'
+import type { MemberRole } from '../types'
+
+const ROLE_RANK: Record<MemberRole, number> = { owner: 3, admin: 2, member: 1 }
+
+export function requireRole(minRole: MemberRole) {
+  return createMW<{ Bindings: Bindings; Variables: Variables }>(async (c, next) => {
+    const userRole = c.get('role') ?? 'member'
+    if (ROLE_RANK[userRole] < ROLE_RANK[minRole]) {
+      return c.json({ error: 'ไม่มีสิทธิ์เข้าถึง (ต้องเป็น ' + minRole + ' ขึ้นไป)' }, 403)
+    }
+    await next()
+  })
+}
 
 function getCookieValue(cookieHeader: string, name: string): string | null {
   const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`))
