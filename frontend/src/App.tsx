@@ -5,6 +5,7 @@ import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import ExpensesPage from './pages/ExpensesPage'
+import IncomesPage from './pages/IncomesPage'
 import BudgetPage from './pages/BudgetPage'
 import MembersPage from './pages/MembersPage'
 import SettingsPage from './pages/SettingsPage'
@@ -45,6 +46,7 @@ export default function App() {
             }
           >
             <Route index element={<DashboardPage />} />
+            <Route path="incomes" element={<IncomesPage />} />
             <Route path="expenses" element={<ExpensesPage />} />
             <Route path="budget" element={<BudgetPage />} />
             <Route path="members" element={<MembersPage />} />

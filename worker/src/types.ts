@@ -10,15 +10,20 @@ export type Bindings = {
 
 export type Variables = {
   userId: number
+  memberId: number | null
   userEmail: string
   userName: string
+  userPicture: string
+  isOwner: boolean
 }
 
 export type SessionData = {
-  userId: number
+  userId: number          // household owner's user_id (used for all data queries)
+  memberId: number | null // the member who actually logged in (for tracking)
   email: string
   name: string
   picture: string
+  isOwner: boolean
 }
 
 export type User = {
@@ -34,6 +39,7 @@ export type Member = {
   id: number
   user_id: number
   name: string
+  email: string | null
   color: string
   emoji: string
   is_owner: number
@@ -86,14 +92,55 @@ export type Budget = {
   amount: number
 }
 
+export type IncomeCategory = {
+  id: number
+  name: string
+  name_en: string | null
+  icon: string
+  color: string
+  sort_order: number
+}
+
+export type Income = {
+  id: number
+  user_id: number
+  member_id: number | null
+  category_id: number
+  amount: number
+  date: string
+  note: string | null
+  receipt_key: string | null
+  created_at: string
+  updated_at: string
+  // Joined fields
+  category_name?: string
+  category_icon?: string
+  category_color?: string
+  member_name?: string
+  member_emoji?: string
+  member_color?: string
+}
+
+export type IncomeSummary = {
+  category_id: number
+  category_name: string
+  category_icon: string
+  category_color: string
+  received: number
+}
+
 export type DashboardData = {
   month: string
   total_spent: number
+  total_income: number
+  net_balance: number
   total_budget: number
   by_category: CategorySummary[]
+  by_income_category: IncomeSummary[]
   by_member: MemberSummary[]
   monthly_trend: MonthlyTrend[]
   recent_expenses: Expense[]
+  recent_incomes: Income[]
 }
 
 export type CategorySummary = {
@@ -116,5 +163,6 @@ export type MemberSummary = {
 
 export type MonthlyTrend = {
   month: string
-  total: number
+  expense: number
+  income: number
 }

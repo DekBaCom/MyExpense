@@ -8,7 +8,10 @@ import {
 import { useDashboard } from '../hooks/useDashboard'
 import BudgetCard from '../components/BudgetCard'
 import ExpenseList from '../components/ExpenseList'
+import IncomeList from '../components/IncomeList'
 import ExpenseForm from '../components/ExpenseForm'
+import IncomeForm from '../components/IncomeForm'
+import clsx from 'clsx'
 
 function fmt(n: number) {
   return n.toLocaleString('th-TH', { maximumFractionDigits: 0 })
@@ -18,9 +21,13 @@ function fmtMonth(m: string) {
   return format(parseISO(`${m}-01`), 'MMM yy', { locale: th })
 }
 
+type Tab = 'expense' | 'income'
+
 export default function DashboardPage() {
   const [month, setMonth] = useState(format(new Date(), 'yyyy-MM'))
-  const [showForm, setShowForm] = useState(false)
+  const [tab, setTab] = useState<Tab>('expense')
+  const [showExpForm, setShowExpForm] = useState(false)
+  const [showIncForm, setShowIncForm] = useState(false)
   const { data, isLoading } = useDashboard(month)
 
   const prevMonth = () => setMonth(format(subMonths(parseISO(`${month}-01`), 1), 'yyyy-MM'))
@@ -33,6 +40,7 @@ export default function DashboardPage() {
   const budgetPct = data?.total_budget
     ? Math.round((data.total_spent / data.total_budget) * 100)
     : 0
+  const netPositive = (data?.net_balance ?? 0) >= 0
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -40,20 +48,28 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 text-sm mt-0.5">ภาพรวมค่าใช้จ่าย</p>
+          <p className="text-gray-500 text-sm mt-0.5">ภาพรวมการเงินของบ้าน</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-sm"
-        >
-          <span className="text-lg">+</span> บันทึกรายจ่าย
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowIncForm(true)}
+            className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 sm:px-4 py-2.5 rounded-xl font-medium hover:bg-emerald-700 shadow-sm text-sm"
+          >
+            <span>+</span> รายรับ
+          </button>
+          <button
+            onClick={() => setShowExpForm(true)}
+            className="flex items-center gap-1.5 bg-indigo-600 text-white px-3 sm:px-4 py-2.5 rounded-xl font-medium hover:bg-indigo-700 shadow-sm text-sm"
+          >
+            <span>+</span> รายจ่าย
+          </button>
+        </div>
       </div>
 
       {/* Month selector */}
       <div className="flex items-center gap-3">
         <button onClick={prevMonth} className="p-2 rounded-xl border border-gray-200 hover:bg-gray-50">‹</button>
-        <span className="text-base font-semibold text-gray-800 min-w-[120px] text-center">
+        <span className="text-base font-semibold text-gray-800 min-w-[140px] text-center">
           {format(parseISO(`${month}-01`), 'MMMM yyyy', { locale: th })}
         </span>
         <button onClick={nextMonth} disabled={isCurrentMonth} className="p-2 rounded-xl border border-gray-200 hover:bg-gray-50 disabled:opacity-30">›</button>
@@ -63,45 +79,87 @@ export default function DashboardPage() {
         <div className="text-center py-16 text-gray-400 animate-pulse">กำลังโหลด...</div>
       ) : data ? (
         <>
-          {/* Summary cards */}
+          {/* Summary: Income / Expense / Net */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white rounded-2xl p-5 border border-gray-100">
-              <p className="text-sm text-gray-500">ใช้ไปทั้งหมด</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">฿{fmt(data.total_spent)}</p>
-            </div>
-            <div className="bg-white rounded-2xl p-5 border border-gray-100">
-              <p className="text-sm text-gray-500">งบประมาณ</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">
-                ฿{fmt(data.total_budget)}
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center text-lg">📥</div>
+                <p className="text-sm text-gray-500">รายรับ</p>
+              </div>
+              <p className="text-2xl sm:text-3xl font-bold text-emerald-600">
+                +฿{fmt(data.total_income)}
               </p>
-              {data.total_budget > 0 && (
-                <div className="mt-2">
-                  <div className="flex justify-between text-xs text-gray-400 mb-1">
-                    <span>{budgetPct}% ใช้ไป</span>
-                    <span>เหลือ ฿{fmt(Math.max(0, data.total_budget - data.total_spent))}</span>
-                  </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full">
-                    <div
-                      className={`h-full rounded-full ${budgetPct > 100 ? 'bg-red-500' : budgetPct > 80 ? 'bg-amber-400' : 'bg-indigo-500'}`}
-                      style={{ width: `${Math.min(budgetPct, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
+
             <div className="bg-white rounded-2xl p-5 border border-gray-100">
-              <p className="text-sm text-gray-500">จำนวนรายการ</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{data.recent_expenses.length > 9 ? '10+' : data.recent_expenses.length}</p>
-              <p className="text-xs text-gray-400 mt-1">รายการล่าสุด</p>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center text-lg">📤</div>
+                <p className="text-sm text-gray-500">รายจ่าย</p>
+              </div>
+              <p className="text-2xl sm:text-3xl font-bold text-red-600">
+                −฿{fmt(data.total_spent)}
+              </p>
+            </div>
+
+            <div className={clsx(
+              'rounded-2xl p-5 border-2',
+              netPositive
+                ? 'bg-emerald-50 border-emerald-200'
+                : 'bg-red-50 border-red-200'
+            )}>
+              <div className="flex items-center gap-2 mb-2">
+                <div className={clsx(
+                  'w-9 h-9 rounded-xl flex items-center justify-center text-lg',
+                  netPositive ? 'bg-emerald-200' : 'bg-red-200'
+                )}>
+                  {netPositive ? '💰' : '⚠️'}
+                </div>
+                <p className="text-sm text-gray-700 font-medium">คงเหลือ</p>
+              </div>
+              <p className={clsx(
+                'text-2xl sm:text-3xl font-bold',
+                netPositive ? 'text-emerald-700' : 'text-red-700'
+              )}>
+                {netPositive ? '' : '−'}฿{fmt(Math.abs(data.net_balance))}
+              </p>
             </div>
           </div>
 
+          {/* Budget bar */}
+          {data.total_budget > 0 && (
+            <div className="bg-white rounded-2xl p-5 border border-gray-100">
+              <div className="flex justify-between items-center mb-2">
+                <p className="text-sm text-gray-600 font-medium">งบประมาณรายจ่าย</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  ฿{fmt(data.total_spent)} <span className="text-gray-400">/ ฿{fmt(data.total_budget)}</span>
+                </p>
+              </div>
+              <div className="h-2 bg-gray-100 rounded-full">
+                <div
+                  className={clsx(
+                    'h-full rounded-full transition-all',
+                    budgetPct > 100 ? 'bg-red-500' : budgetPct > 80 ? 'bg-amber-400' : 'bg-indigo-500'
+                  )}
+                  style={{ width: `${Math.min(budgetPct, 100)}%` }}
+                />
+              </div>
+              <div className="flex justify-between mt-1.5 text-xs">
+                <span className={budgetPct > 100 ? 'text-red-500' : 'text-gray-400'}>
+                  {budgetPct}% ใช้ไป
+                </span>
+                <span className="text-gray-400">
+                  เหลือ ฿{fmt(Math.max(0, data.total_budget - data.total_spent))}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Donut chart */}
+            {/* Donut: spending by category */}
             {data.by_category.length > 0 && (
               <div className="bg-white rounded-2xl p-5 border border-gray-100">
-                <h2 className="text-sm font-semibold text-gray-700 mb-4">สัดส่วนค่าใช้จ่าย</h2>
+                <h2 className="text-sm font-semibold text-gray-700 mb-4">สัดส่วนรายจ่าย</h2>
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
                     <Pie
@@ -127,21 +185,61 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Bar chart trend */}
+            {/* Bar chart trend: income vs expense */}
             {data.monthly_trend.length > 0 && (
               <div className="bg-white rounded-2xl p-5 border border-gray-100">
-                <h2 className="text-sm font-semibold text-gray-700 mb-4">แนวโน้ม 6 เดือน</h2>
+                <h2 className="text-sm font-semibold text-gray-700 mb-4">รายรับ vs รายจ่าย (6 เดือน)</h2>
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={data.monthly_trend} barSize={28}>
+                  <BarChart data={data.monthly_trend} barSize={14}>
                     <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `฿${Math.round(v/1000)}k`} />
-                    <Tooltip formatter={(v: number) => [`฿${fmt(v)}`, 'รายจ่าย']} labelFormatter={fmtMonth} />
-                    <Bar dataKey="total" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                    <Tooltip
+                      formatter={(v: number, name: string) => [`฿${fmt(v)}`, name === 'income' ? 'รายรับ' : 'รายจ่าย']}
+                      labelFormatter={fmtMonth}
+                    />
+                    <Legend formatter={(v) => v === 'income' ? 'รายรับ' : 'รายจ่าย'} wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="expense" fill="#ef4444" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             )}
           </div>
+
+          {/* Income breakdown */}
+          {data.by_income_category.length > 0 && (
+            <div className="bg-white rounded-2xl p-5 border border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-700 mb-4">รายรับแต่ละประเภท</h2>
+              <div className="space-y-3">
+                {data.by_income_category.map(item => {
+                  const pct = data.total_income ? Math.round((item.received / data.total_income) * 100) : 0
+                  return (
+                    <div key={item.category_id} className="flex items-center gap-3">
+                      <span
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
+                        style={{ backgroundColor: `${item.category_color}25` }}
+                      >
+                        {item.category_icon}
+                      </span>
+                      <div className="flex-1">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="font-medium text-gray-700">{item.category_name}</span>
+                          <span className="text-emerald-600 font-semibold">+฿{fmt(item.received)}</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${pct}%`, backgroundColor: item.category_color }}
+                          />
+                        </div>
+                      </div>
+                      <span className="text-xs text-gray-400 w-10 text-right">{pct}%</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Budget by category */}
           {data.by_category.length > 0 && (
@@ -185,23 +283,57 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Recent expenses */}
+          {/* Tabs: recent expenses / incomes */}
           <div className="bg-white rounded-2xl p-5 border border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4">รายการล่าสุด</h2>
-            <ExpenseList expenses={data.recent_expenses} />
+            <div className="flex items-center gap-2 mb-4 border-b border-gray-100">
+              <button
+                onClick={() => setTab('expense')}
+                className={clsx(
+                  'px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                  tab === 'expense' ? 'border-indigo-500 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+                )}
+              >
+                รายจ่ายล่าสุด
+              </button>
+              <button
+                onClick={() => setTab('income')}
+                className={clsx(
+                  'px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                  tab === 'income' ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+                )}
+              >
+                รายรับล่าสุด
+              </button>
+            </div>
+            {tab === 'expense' ? (
+              <ExpenseList expenses={data.recent_expenses} />
+            ) : (
+              <IncomeList incomes={data.recent_incomes} />
+            )}
           </div>
         </>
       ) : null}
 
-      {/* Add expense modal */}
-      {showForm && (
+      {showExpForm && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40">
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">บันทึกรายจ่าย</h2>
-              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+              <button onClick={() => setShowExpForm(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
             </div>
-            <ExpenseForm onClose={() => setShowForm(false)} />
+            <ExpenseForm onClose={() => setShowExpForm(false)} />
+          </div>
+        </div>
+      )}
+
+      {showIncForm && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">บันทึกรายรับ</h2>
+              <button onClick={() => setShowIncForm(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            </div>
+            <IncomeForm onClose={() => setShowIncForm(false)} />
           </div>
         </div>
       )}

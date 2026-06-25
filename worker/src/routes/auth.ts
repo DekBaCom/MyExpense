@@ -84,29 +84,61 @@ auth.get('/callback', async (c) => {
     return c.redirect(`${c.env.FRONTEND_URL}?error=db_error`)
   }
 
-  // Create default member (owner) if first login
-  const memberCount = await c.env.DB.prepare(
-    'SELECT COUNT(*) as count FROM members WHERE user_id = ?'
+  // Check if this email matches a member from ANOTHER user's household
+  // (i.e., the owner has invited this email as a family member)
+  const invitedMember = await c.env.DB.prepare(
+    `SELECT id, user_id, is_owner FROM members
+     WHERE email = ? AND user_id != ?
+     ORDER BY is_owner DESC, created_at ASC
+     LIMIT 1`
   )
-    .bind(user.id)
-    .first<{ count: number }>()
+    .bind(googleUser.email, user.id)
+    .first<{ id: number; user_id: number; is_owner: number }>()
 
-  if (memberCount?.count === 0) {
-    await c.env.DB.prepare(
-      `INSERT INTO members (user_id, name, color, emoji, is_owner)
-       VALUES (?, ?, '#6366f1', '👤', 1)`
+  let householdUserId: number
+  let memberId: number | null
+  let isOwner: boolean
+
+  if (invitedMember) {
+    // Logged-in user is a household member (invited by another owner)
+    householdUserId = invitedMember.user_id
+    memberId = invitedMember.id
+    isOwner = false
+  } else {
+    // This user is their own household owner
+    householdUserId = user.id
+    isOwner = true
+
+    // Create default member (owner) if first login
+    const existingOwner = await c.env.DB.prepare(
+      'SELECT id FROM members WHERE user_id = ? AND is_owner = 1 LIMIT 1'
     )
-      .bind(user.id, googleUser.name.split(' ')[0])
-      .run()
+      .bind(user.id)
+      .first<{ id: number }>()
+
+    if (existingOwner) {
+      memberId = existingOwner.id
+    } else {
+      const inserted = await c.env.DB.prepare(
+        `INSERT INTO members (user_id, name, email, color, emoji, is_owner)
+         VALUES (?, ?, ?, '#6366f1', '👤', 1)
+         RETURNING id`
+      )
+        .bind(user.id, googleUser.name.split(' ')[0], googleUser.email)
+        .first<{ id: number }>()
+      memberId = inserted?.id ?? null
+    }
   }
 
   // Create session
   const sessionId = generateSessionId()
   const sessionData: SessionData = {
-    userId: user.id,
+    userId: householdUserId,
+    memberId,
     email: user.email,
     name: user.name,
     picture: user.picture ?? '',
+    isOwner,
   }
 
   await c.env.SESSIONS.put(`session:${sessionId}`, JSON.stringify(sessionData), {
@@ -120,12 +152,32 @@ auth.get('/callback', async (c) => {
 })
 
 auth.get('/me', authMiddleware, async (c) => {
-  const user = await c.env.DB.prepare('SELECT id, email, name, picture FROM users WHERE id = ?')
-    .bind(c.get('userId'))
-    .first<Omit<User, 'google_id' | 'created_at'>>()
+  const memberId = c.get('memberId')
+  const userEmail = c.get('userEmail')
+  const userName = c.get('userName')
+  const userPicture = c.get('userPicture')
+  const isOwner = c.get('isOwner')
 
-  if (!user) return c.json({ error: 'User not found' }, 404)
-  return c.json(user)
+  let memberInfo: { name?: string; emoji?: string; color?: string } = {}
+  if (memberId) {
+    const m = await c.env.DB.prepare(
+      'SELECT name, emoji, color FROM members WHERE id = ?'
+    )
+      .bind(memberId)
+      .first<{ name: string; emoji: string; color: string }>()
+    if (m) memberInfo = m
+  }
+
+  return c.json({
+    email: userEmail,
+    name: userName,
+    picture: userPicture,
+    member_id: memberId,
+    member_name: memberInfo.name ?? userName,
+    member_emoji: memberInfo.emoji ?? '👤',
+    member_color: memberInfo.color ?? '#6366f1',
+    is_owner: isOwner,
+  })
 })
 
 auth.post('/logout', async (c) => {

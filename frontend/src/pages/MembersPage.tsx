@@ -6,15 +6,16 @@ import type { Member } from '../types'
 const COLORS = ['#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6','#ec4899','#8b5cf6','#f97316']
 const EMOJIS = ['👤','👨','👩','👦','👧','👴','👵','🐱','🐶','⭐']
 
-type FormData = { name: string; color: string; emoji: string }
+type FormData = { name: string; email: string; color: string; emoji: string }
 
-const defaultForm: FormData = { name: '', color: COLORS[0], emoji: EMOJIS[0] }
+const defaultForm: FormData = { name: '', email: '', color: COLORS[0], emoji: EMOJIS[0] }
 
 export default function MembersPage() {
   const qc = useQueryClient()
   const [form, setForm] = useState<FormData>(defaultForm)
   const [editing, setEditing] = useState<Member | null>(null)
   const [showAdd, setShowAdd] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
@@ -22,13 +23,34 @@ export default function MembersPage() {
   })
 
   const createMember = useMutation({
-    mutationFn: (data: FormData) => api.createMember(data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['members'] }); setShowAdd(false); setForm(defaultForm) },
+    mutationFn: (data: FormData) => api.createMember({
+      name: data.name,
+      email: data.email.trim() || null,
+      color: data.color,
+      emoji: data.emoji,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['members'] })
+      setShowAdd(false)
+      setForm(defaultForm)
+      setErrorMsg('')
+    },
+    onError: (e: Error) => setErrorMsg(e.message),
   })
 
   const updateMember = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<FormData> }) => api.updateMember(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['members'] }); setEditing(null) },
+    mutationFn: ({ id, data }: { id: number; data: FormData }) => api.updateMember(id, {
+      name: data.name,
+      email: data.email.trim() || null,
+      color: data.color,
+      emoji: data.emoji,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['members'] })
+      setEditing(null)
+      setErrorMsg('')
+    },
+    onError: (e: Error) => setErrorMsg(e.message),
   })
 
   const deleteMember = useMutation({
@@ -38,7 +60,8 @@ export default function MembersPage() {
 
   function openEdit(m: Member) {
     setEditing(m)
-    setForm({ name: m.name, color: m.color, emoji: m.emoji })
+    setForm({ name: m.name, email: m.email ?? '', color: m.color, emoji: m.emoji })
+    setErrorMsg('')
   }
 
   function handleDelete(m: Member) {
@@ -84,16 +107,22 @@ export default function MembersPage() {
               {m.emoji}
             </div>
             <div className="flex-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium text-gray-900">{m.name}</span>
                 {m.is_owner === 1 && (
                   <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">เจ้าของ</span>
                 )}
+                {m.email && (
+                  <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                    🔑 Login ได้
+                  </span>
+                )}
               </div>
-              <div className="flex items-center gap-1 mt-0.5">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color }} />
-                <span className="text-xs text-gray-400">{m.color}</span>
-              </div>
+              {m.email ? (
+                <p className="text-xs text-gray-500 mt-0.5 truncate">📧 {m.email}</p>
+              ) : (
+                <p className="text-xs text-gray-400 mt-0.5">ยังไม่ได้ผูกอีเมล</p>
+              )}
             </div>
             <div className="flex gap-2">
               <button
@@ -154,6 +183,26 @@ export default function MembersPage() {
               />
             </div>
 
+            {/* Email (for login) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                อีเมล (สำหรับ Login) <span className="text-gray-400 font-normal">— ไม่บังคับ</span>
+              </label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm"
+                placeholder="member@gmail.com"
+                disabled={!!editing && editing.is_owner === 1}
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                {editing?.is_owner === 1
+                  ? 'อีเมลเจ้าของบัญชีแก้ไขไม่ได้'
+                  : 'สมาชิกจะ Login ได้ด้วย Google account ที่ใช้อีเมลนี้'}
+              </p>
+            </div>
+
             {/* Emoji */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">อิโมจิ</label>
@@ -186,6 +235,12 @@ export default function MembersPage() {
                 ))}
               </div>
             </div>
+
+            {errorMsg && (
+              <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+                {errorMsg}
+              </div>
+            )}
 
             <button
               onClick={handleSubmit}

@@ -9,6 +9,7 @@ members.use('*', authMiddleware)
 
 const memberSchema = z.object({
   name: z.string().min(1).max(50),
+  email: z.string().email().nullable().optional(),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#6366f1'),
   emoji: z.string().max(4).default('👤'),
 })
@@ -25,12 +26,22 @@ members.get('/', async (c) => {
 
 members.post('/', zValidator('json', memberSchema), async (c) => {
   const userId = c.get('userId')
-  const { name, color, emoji } = c.req.valid('json')
+  const { name, email, color, emoji } = c.req.valid('json')
+
+  // Prevent duplicate email across all members
+  if (email) {
+    const dup = await c.env.DB.prepare(
+      'SELECT id FROM members WHERE email = ? LIMIT 1'
+    )
+      .bind(email.toLowerCase())
+      .first()
+    if (dup) return c.json({ error: 'อีเมลนี้ถูกใช้แล้ว' }, 409)
+  }
 
   const result = await c.env.DB.prepare(
-    `INSERT INTO members (user_id, name, color, emoji) VALUES (?, ?, ?, ?) RETURNING id`
+    `INSERT INTO members (user_id, name, email, color, emoji) VALUES (?, ?, ?, ?, ?) RETURNING id`
   )
-    .bind(userId, name, color, emoji)
+    .bind(userId, name, email?.toLowerCase() ?? null, color, emoji)
     .first<{ id: number }>()
 
   return c.json({ id: result?.id }, 201)
@@ -48,9 +59,20 @@ members.put('/:id', zValidator('json', memberSchema.partial()), async (c) => {
     .first()
   if (!existing) return c.json({ error: 'Not found' }, 404)
 
+  // Prevent duplicate email across all members
+  if (body.email) {
+    const dup = await c.env.DB.prepare(
+      'SELECT id FROM members WHERE email = ? AND id != ? LIMIT 1'
+    )
+      .bind(body.email.toLowerCase(), id)
+      .first()
+    if (dup) return c.json({ error: 'อีเมลนี้ถูกใช้แล้ว' }, 409)
+  }
+
   const fields: string[] = []
-  const vals: (string | number)[] = []
+  const vals: (string | number | null)[] = []
   if (body.name !== undefined) { fields.push('name = ?'); vals.push(body.name) }
+  if (body.email !== undefined) { fields.push('email = ?'); vals.push(body.email?.toLowerCase() ?? null) }
   if (body.color !== undefined) { fields.push('color = ?'); vals.push(body.color) }
   if (body.emoji !== undefined) { fields.push('emoji = ?'); vals.push(body.emoji) }
 

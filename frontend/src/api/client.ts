@@ -27,7 +27,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   // Auth
-  getMe: () => request<{ id: number; email: string; name: string; picture: string }>('/auth/me'),
+  getMe: () => request<import('../types').User>('/auth/me'),
   logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
 
   // Expenses
@@ -50,9 +50,9 @@ export const api = {
 
   // Members
   getMembers: () => request<import('../types').Member[]>('/members'),
-  createMember: (body: { name: string; color: string; emoji: string }) =>
+  createMember: (body: { name: string; email?: string | null; color: string; emoji: string }) =>
     request<{ id: number }>('/members', { method: 'POST', body: JSON.stringify(body) }),
-  updateMember: (id: number, body: Partial<{ name: string; color: string; emoji: string }>) =>
+  updateMember: (id: number, body: Partial<{ name: string; email: string | null; color: string; emoji: string }>) =>
     request<{ ok: boolean }>(`/members/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteMember: (id: number) =>
     request<{ ok: boolean }>(`/members/${id}`, { method: 'DELETE' }),
@@ -101,4 +101,22 @@ export const api = {
     request<{ ok: boolean }>('/settings/line', { method: 'PUT', body: JSON.stringify(body) }),
   testLineNotification: () =>
     request<{ ok: boolean }>('/settings/line/test', { method: 'POST' }),
+
+  // Incomes
+  getIncomes: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString()
+    return request<{ data: import('../types').Income[]; total: number; limit: number; offset: number }>(
+      `/incomes${qs ? `?${qs}` : ''}`
+    )
+  },
+  createIncome: (body: import('../types').IncomeFormData) =>
+    request<{ id: number }>('/incomes', { method: 'POST', body: JSON.stringify(body) }),
+  updateIncome: (id: number, body: Partial<import('../types').IncomeFormData>) =>
+    request<{ ok: boolean }>(`/incomes/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteIncome: (id: number) =>
+    request<{ ok: boolean }>(`/incomes/${id}`, { method: 'DELETE' }),
+
+  // Income categories
+  getIncomeCategories: () =>
+    request<import('../types').IncomeCategory[]>('/income-categories'),
 }

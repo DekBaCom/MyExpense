@@ -10,6 +10,8 @@ import budgets from './routes/budgets'
 import dashboard from './routes/dashboard'
 import receipts from './routes/receipts'
 import settings from './routes/settings'
+import incomes from './routes/incomes'
+import incomeCategories from './routes/income-categories'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -36,6 +38,8 @@ app.route('/api/budgets', budgets)
 app.route('/api/dashboard', dashboard)
 app.route('/api/receipts', receipts)
 app.route('/api/settings', settings)
+app.route('/api/incomes', incomes)
+app.route('/api/income-categories', incomeCategories)
 
 app.get('/api/health', (c) => c.json({ status: 'ok', ts: new Date().toISOString() }))
 

@@ -18,8 +18,11 @@ export const authMiddleware = createMiddleware<{
 
   const session: SessionData = JSON.parse(sessionRaw)
   c.set('userId', session.userId)
+  c.set('memberId', session.memberId ?? null)
   c.set('userEmail', session.email)
   c.set('userName', session.name)
+  c.set('userPicture', session.picture ?? '')
+  c.set('isOwner', session.isOwner ?? true)
 
   await next()
 })

@@ -7,6 +7,7 @@ import clsx from 'clsx'
 
 const navItems = [
   { to: '/',         icon: '📊', label: 'Dashboard' },
+  { to: '/incomes',  icon: '📥', label: 'รายรับ' },
   { to: '/expenses', icon: '📝', label: 'รายจ่าย' },
   { to: '/budget',   icon: '💰', label: 'งบประมาณ' },
   { to: '/members',  icon: '👨‍👩‍👧', label: 'สมาชิก' },
@@ -80,7 +81,7 @@ export default function Layout() {
         {/* User */}
         {user && (
           <div className="p-4 border-t border-gray-100">
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-3 mb-2">
               {user.picture ? (
                 <img src={user.picture} alt="" className="w-9 h-9 rounded-full" />
               ) : (
@@ -89,10 +90,23 @@ export default function Layout() {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+                  {user.is_owner ? (
+                    <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">เจ้าของ</span>
+                  ) : (
+                    <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">สมาชิก</span>
+                  )}
+                </div>
                 <p className="text-xs text-gray-500 truncate">{user.email}</p>
               </div>
             </div>
+            {!user.is_owner && (
+              <div className="mb-2 px-2 py-1.5 bg-emerald-50 rounded-lg text-xs text-emerald-700 flex items-center gap-1">
+                <span>{user.member_emoji}</span>
+                เข้าใช้งานในฐานะ <strong>{user.member_name}</strong>
+              </div>
+            )}
             <button
               onClick={handleLogout}
               className="w-full text-sm text-gray-500 hover:text-red-500 text-left px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
