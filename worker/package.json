@@ -1,0 +1,24 @@
+{
+  "name": "myexpense-worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply myexpense-db",
+    "db:migrate:remote": "wrangler d1 migrations apply myexpense-db --remote",
+    "db:seed": "wrangler d1 execute myexpense-db --file=./migrations/0002_seed.sql",
+    "db:seed:remote": "wrangler d1 execute myexpense-db --file=./migrations/0002_seed.sql --remote",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.4.1",
+    "hono": "^4.6.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241205.0",
+    "typescript": "^5.7.2",
+    "wrangler": "^3.100.0"
+  }
+}

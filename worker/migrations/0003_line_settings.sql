@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS line_settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  channel_token TEXT,
+  line_user_id TEXT,
+  notify_on_add INTEGER NOT NULL DEFAULT 1,
+  notify_on_budget_alert INTEGER NOT NULL DEFAULT 1,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

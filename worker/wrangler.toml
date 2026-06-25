@@ -1,0 +1,31 @@
+name = "myexpense-worker"
+main = "src/index.ts"
+compatibility_date = "2024-12-05"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+FRONTEND_URL = "https://myexpense-4pp.pages.dev"
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "myexpense-db"
+database_id = "14e1b228-0c36-4280-8964-40f90a9dfd93"
+migrations_dir = "migrations"
+
+# KV for session storage
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "bb88bdfe34df4e0da8482b9684625255"
+
+# Secrets (set via: wrangler secret put SECRET_NAME)
+# GOOGLE_CLIENT_ID
+# GOOGLE_CLIENT_SECRET
+# SESSION_SECRET
+
+[dev]
+port = 8787
+
+[[r2_buckets]]
+binding = "RECEIPTS"
+bucket_name = "myexpense-receipts"
