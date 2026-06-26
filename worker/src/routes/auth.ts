@@ -12,7 +12,7 @@ const auth = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 auth.get('/login', (c) => {
   const params = new URLSearchParams({
     client_id: c.env.GOOGLE_CLIENT_ID,
-    redirect_uri: `${new URL(c.req.url).origin}/api/auth/callback`,
+    redirect_uri: `${c.env.FRONTEND_URL}/api/auth/callback`,
     response_type: 'code',
     scope: 'openid email profile',
     access_type: 'offline',
@@ -23,7 +23,6 @@ auth.get('/login', (c) => {
 
 auth.get('/callback', async (c) => {
   const code = c.req.query('code')
-  const origin = new URL(c.req.url).origin
 
   if (!code) {
     return c.redirect(`${c.env.FRONTEND_URL}?error=no_code`)
@@ -37,7 +36,7 @@ auth.get('/callback', async (c) => {
       code,
       client_id: c.env.GOOGLE_CLIENT_ID,
       client_secret: c.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: `${origin}/api/auth/callback`,
+      redirect_uri: `${c.env.FRONTEND_URL}/api/auth/callback`,
       grant_type: 'authorization_code',
     }),
   })

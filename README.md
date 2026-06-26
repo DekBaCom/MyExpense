@@ -51,7 +51,7 @@ MyExpense/
 
 1. ไปที่ [Google Cloud Console](https://console.cloud.google.com/)
 2. สร้าง OAuth 2.0 Client ID
-3. เพิ่ม Authorized redirect URI: `https://myexpense-worker.YOUR_SUBDOMAIN.workers.dev/api/auth/callback`
+3. เพิ่ม Authorized redirect URI: `https://YOUR_PAGES_DOMAIN.pages.dev/api/auth/callback`
 
 ### 2. ตั้งค่า Cloudflare
 
