@@ -22,6 +22,7 @@ function formatDate(dateStr: string) {
 
 export default function ExpenseList({ expenses, showDate = true }: Props) {
   const [editing, setEditing] = useState<Expense | null>(null)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const deleteExpense = useDeleteExpense()
 
   async function handleDelete(id: number) {
@@ -82,19 +83,18 @@ export default function ExpenseList({ expenses, showDate = true }: Props) {
 
             {/* Receipt thumbnail */}
             {expense.receipt_key && (
-              <a
-                href={api.getReceiptUrl(expense.id)}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => setLightboxUrl(api.getReceiptUrl(expense.id))}
                 className="flex-shrink-0"
                 title="ดูใบเสร็จ"
               >
                 <img
                   src={api.getReceiptUrl(expense.id)}
                   alt="ใบเสร็จ"
-                  className="w-10 h-10 rounded-lg object-cover border border-gray-200 hover:opacity-80 transition-opacity"
+                  className="w-10 h-10 rounded-lg object-cover border border-gray-200 hover:opacity-80 transition-opacity cursor-zoom-in"
                 />
-              </a>
+              </button>
             )}
 
             {/* Amount */}
@@ -122,6 +122,28 @@ export default function ExpenseList({ expenses, showDate = true }: Props) {
           </div>
         ))}
       </div>
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt="ใบเสร็จ"
+            className="max-w-full max-h-full rounded-xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 bg-white/90 rounded-full w-9 h-9 flex items-center justify-center text-gray-600 hover:text-red-500 border border-gray-200 shadow text-lg"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Edit modal */}
       {editing && (

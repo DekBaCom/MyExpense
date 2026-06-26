@@ -25,6 +25,7 @@ export default function ExpenseForm({ expense, onClose }: Props) {
     expense?.receipt_key ? api.getReceiptUrl(expense.id) : null
   )
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
 
   const { register, handleSubmit, control, watch, reset, formState: { errors } } = useForm<ExpenseFormData>({
     defaultValues: {
@@ -241,7 +242,8 @@ export default function ExpenseForm({ expense, onClose }: Props) {
             <img
               src={receiptPreview}
               alt="ใบเสร็จ"
-              className="w-full max-h-48 object-contain rounded-xl border border-gray-200 bg-gray-50"
+              onClick={() => setLightboxOpen(true)}
+              className="w-full max-h-48 object-contain rounded-xl border border-gray-200 bg-gray-50 cursor-zoom-in"
             />
             <button
               type="button"
@@ -288,6 +290,27 @@ export default function ExpenseForm({ expense, onClose }: Props) {
           {isPending ? 'กำลังบันทึก...' : expense ? 'บันทึกการแก้ไข' : 'บันทึก'}
         </button>
       </div>
+
+      {lightboxOpen && receiptPreview && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <img
+            src={receiptPreview}
+            alt="ใบเสร็จ"
+            className="max-w-full max-h-full rounded-xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(false)}
+            className="absolute top-4 right-4 bg-white/90 rounded-full w-9 h-9 flex items-center justify-center text-gray-600 hover:text-red-500 border border-gray-200 shadow text-lg"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </form>
   )
 }
