@@ -237,7 +237,7 @@ export default function ExpenseForm({ expense, onClose }: Props) {
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">ใบเสร็จ / รูปภาพ (ไม่บังคับ)</label>
         {receiptPreview ? (
-          <div className="relative inline-block">
+          <div className="relative w-full">
             <img
               src={receiptPreview}
               alt="ใบเสร็จ"

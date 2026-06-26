@@ -111,7 +111,7 @@ export const api = {
     }
     return res.json() as Promise<{ ok: boolean; key: string }>
   },
-  getReceiptUrl: (expenseId: number) => `/api/receipts/${expenseId}/image`,
+  getReceiptUrl: (expenseId: number) => `${BASE}/receipts/${expenseId}/image`,
   deleteReceipt: (expenseId: number) =>
     request<{ ok: boolean }>(`/receipts/${expenseId}`, { method: 'DELETE' }),
 
