@@ -12,6 +12,7 @@ import IncomeList from '../components/IncomeList'
 import ExpenseForm from '../components/ExpenseForm'
 import IncomeForm from '../components/IncomeForm'
 import UpcomingPaymentsCard from '../components/UpcomingPaymentsCard'
+import DebtSummaryCard from '../components/DebtSummaryCard'
 import clsx from 'clsx'
 
 function fmt(n: number) {
@@ -29,6 +30,7 @@ export default function DashboardPage() {
   const [tab, setTab] = useState<Tab>('expense')
   const [showExpForm, setShowExpForm] = useState(false)
   const [showIncForm, setShowIncForm] = useState(false)
+  const [showBudgetCards, setShowBudgetCards] = useState(false)
   const { data, isLoading } = useDashboard(month)
 
   const prevMonth = () => setMonth(format(subMonths(parseISO(`${month}-01`), 1), 'yyyy-MM'))
@@ -168,8 +170,11 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Upcoming bills */}
-          <UpcomingPaymentsCard month={month} />
+          {/* Upcoming bills + Debt summary */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <UpcomingPaymentsCard month={month} />
+            <DebtSummaryCard />
+          </div>
 
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -258,15 +263,25 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Budget by category */}
+          {/* Budget by category — collapsible */}
           {data.by_category.length > 0 && (
-            <div className="bg-white rounded-2xl p-5 border border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-700 mb-4">งบประมาณแต่ละหมวด</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {data.by_category.map(cat => (
-                  <BudgetCard key={cat.category_id} category={cat} />
-                ))}
-              </div>
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <button
+                onClick={() => setShowBudgetCards(v => !v)}
+                className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition-colors"
+              >
+                <h2 className="text-sm font-semibold text-gray-700">งบประมาณแต่ละหมวด</h2>
+                <span className={clsx('text-gray-400 transition-transform duration-200 text-lg leading-none', showBudgetCards ? 'rotate-180' : '')}>
+                  ⌄
+                </span>
+              </button>
+              {showBudgetCards && (
+                <div className="px-5 pb-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {data.by_category.map(cat => (
+                    <BudgetCard key={cat.category_id} category={cat} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
