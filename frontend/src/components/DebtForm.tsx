@@ -125,14 +125,17 @@ export default function DebtForm({ debt, onClose }: Props) {
         />
       </div>
 
-      {/* Category — used for auto-creating expense on payment */}
+      {/* Category — pre-select so payment auto-creates expense */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">หมวดหมู่รายจ่าย (สำหรับบันทึกรายจ่ายเมื่อชำระ)</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          หมวดหมู่รายจ่าย
+          <span className="ml-1 text-xs text-gray-400 font-normal">(ใช้บันทึกรายจ่ายเมื่อชำระ)</span>
+        </label>
         <select
           {...register('category_id')}
           className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
         >
-          <option value="">ไม่ระบุ (ไม่บันทึกรายจ่าย)</option>
+          <option value="">— ยังไม่ระบุ —</option>
           {allCategories.map(c => (
             <option key={c.id} value={c.id}>
               {c.icon} {c.name}{c.parent_id ? '' : ' ▸'}

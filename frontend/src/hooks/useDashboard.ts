@@ -7,6 +7,6 @@ export function useDashboard(month?: string) {
   return useQuery({
     queryKey: ['dashboard', currentMonth],
     queryFn: () => api.getDashboard(currentMonth),
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
   })
 }

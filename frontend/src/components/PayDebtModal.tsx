@@ -30,6 +30,7 @@ export default function PayDebtModal({ debt, onClose }: Props) {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [note, setNote] = useState('')
   const [categoryId, setCategoryId] = useState<string>(debt.category_id ? String(debt.category_id) : '')
+  const [categoryError, setCategoryError] = useState(false)
 
   function handleSlipChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -43,23 +44,26 @@ export default function PayDebtModal({ debt, onClose }: Props) {
   async function handleConfirm() {
     const parsedAmount = parseFloat(amount)
     if (!parsedAmount || parsedAmount <= 0) { setError('กรุณาระบุจำนวนเงิน'); return }
+    if (!categoryId) { setCategoryError(true); return }
+
     setIsPending(true)
     setError(null)
+    setCategoryError(false)
     try {
       const opts = {
         amount: parsedAmount,
         date: date || undefined,
         note: note.trim() || undefined,
-        category_id: categoryId ? Number(categoryId) : null,
+        category_id: Number(categoryId),
       }
       if (slipFile) {
         await api.uploadDebtSlip(debt.id, slipFile, opts)
       } else {
         await api.payDebt(debt.id, opts)
       }
-      qc.invalidateQueries({ queryKey: ['debts'] })
-      qc.invalidateQueries({ queryKey: ['expenses'] })
-      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      await qc.invalidateQueries({ queryKey: ['debts'] })
+      await qc.invalidateQueries({ queryKey: ['expenses'] })
+      await qc.refetchQueries({ queryKey: ['dashboard'], type: 'all' })
       onClose()
     } catch (e) {
       setError((e as Error).message)
@@ -147,6 +151,30 @@ export default function PayDebtModal({ debt, onClose }: Props) {
           </div>
         </div>
 
+        {/* Category — required to create expense */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            หมวดหมู่รายจ่าย <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={categoryId}
+            onChange={e => { setCategoryId(e.target.value); setCategoryError(false) }}
+            className={`w-full px-3 py-2.5 border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 ${
+              categoryError ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-300'
+            }`}
+          >
+            <option value="">— เลือกหมวดหมู่ —</option>
+            {allCategories.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.icon} {c.name}{c.parent_id ? '' : ' ▸'}
+              </option>
+            ))}
+          </select>
+          {categoryError && (
+            <p className="mt-1 text-xs text-red-500">กรุณาเลือกหมวดหมู่เพื่อบันทึกเป็นรายจ่าย</p>
+          )}
+        </div>
+
         {/* Date */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">วันที่จ่าย</label>
@@ -156,29 +184,6 @@ export default function PayDebtModal({ debt, onClose }: Props) {
             onChange={e => setDate(e.target.value)}
             className="w-full px-3 py-2.5 border border-gray-300 rounded-xl"
           />
-        </div>
-
-        {/* Category — always show so user can pick category at payment time */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            หมวดหมู่รายจ่าย
-            {categoryId
-              ? <span className="ml-1 text-xs text-emerald-600 font-normal">✓ จะบันทึกเป็นรายจ่าย</span>
-              : <span className="ml-1 text-xs text-gray-400 font-normal">(ไม่เลือก = ไม่บันทึกรายจ่าย)</span>
-            }
-          </label>
-          <select
-            value={categoryId}
-            onChange={e => setCategoryId(e.target.value)}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
-          >
-            <option value="">ไม่บันทึกเป็นรายจ่าย</option>
-            {allCategories.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.icon} {c.name}{c.parent_id ? '' : ' ▸'}
-              </option>
-            ))}
-          </select>
         </div>
 
         {/* Note */}
@@ -199,13 +204,24 @@ export default function PayDebtModal({ debt, onClose }: Props) {
           <label className="block text-sm font-medium text-gray-700 mb-2">อัปโหลดสลิ๊ป (ไม่บังคับ)</label>
           {slipPreview ? (
             <div className="relative w-full">
-              <img src={slipPreview} alt="สลิ๊ป" onClick={() => setLightboxOpen(true)} className="w-full max-h-40 object-contain rounded-xl border border-gray-200 bg-gray-50 cursor-zoom-in" />
-              <button type="button" onClick={() => { setSlipFile(null); setSlipPreview(null); if (slipRef.current) slipRef.current.value = '' }}
-                className="absolute top-2 right-2 bg-white/90 rounded-full w-7 h-7 flex items-center justify-center text-gray-500 hover:text-red-500 border border-gray-200 shadow-sm text-sm">✕</button>
+              <img
+                src={slipPreview}
+                alt="สลิ๊ป"
+                onClick={() => setLightboxOpen(true)}
+                className="w-full max-h-40 object-contain rounded-xl border border-gray-200 bg-gray-50 cursor-zoom-in"
+              />
+              <button
+                type="button"
+                onClick={() => { setSlipFile(null); setSlipPreview(null); if (slipRef.current) slipRef.current.value = '' }}
+                className="absolute top-2 right-2 bg-white/90 rounded-full w-7 h-7 flex items-center justify-center text-gray-500 hover:text-red-500 border border-gray-200 shadow-sm text-sm"
+              >✕</button>
             </div>
           ) : (
-            <button type="button" onClick={() => slipRef.current?.click()}
-              className="w-full py-5 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-green-300 hover:text-green-500 transition-colors flex flex-col items-center gap-1">
+            <button
+              type="button"
+              onClick={() => slipRef.current?.click()}
+              className="w-full py-5 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-green-300 hover:text-green-500 transition-colors flex flex-col items-center gap-1"
+            >
               <span className="text-2xl">📸</span>
               <span className="text-xs">แตะเพื่อเลือกรูปสลิ๊ป</span>
             </button>
@@ -216,9 +232,15 @@ export default function PayDebtModal({ debt, onClose }: Props) {
         {error && <p className="text-xs text-red-500">{error}</p>}
 
         <div className="flex gap-3 pb-1">
-          <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50">ยกเลิก</button>
-          <button type="button" onClick={handleConfirm} disabled={isPending || !parseFloat(amount)}
-            className="flex-1 py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 disabled:opacity-60">
+          <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50">
+            ยกเลิก
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={isPending || !parseFloat(amount)}
+            className="flex-1 py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 disabled:opacity-60"
+          >
             {isPending ? 'กำลังบันทึก...' : 'ยืนยันชำระแล้ว'}
           </button>
         </div>

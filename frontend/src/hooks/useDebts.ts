@@ -46,7 +46,11 @@ export function useUnpayDebt() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => api.unpayDebt(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['debts'] }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['debts'] })
+      await qc.invalidateQueries({ queryKey: ['expenses'] })
+      await qc.refetchQueries({ queryKey: ['dashboard'], type: 'all' })
+    },
   })
 }
 
