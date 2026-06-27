@@ -2,8 +2,10 @@ import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { format } from 'date-fns'
 import type { Debt, DebtFormData } from '../types'
+import { PAYMENT_METHODS } from '../types'
 import { useCreateDebt, useUpdateDebt } from '../hooks/useDebts'
 import { useMembers } from '../hooks/useExpenses'
+import { useCategories } from '../hooks/useCategories'
 import { api } from '../api/client'
 
 type Props = {
@@ -13,6 +15,8 @@ type Props = {
 
 export default function DebtForm({ debt, onClose }: Props) {
   const { data: members = [] } = useMembers()
+  const { data: categoriesTree = [] } = useCategories()
+  const allCategories = categoriesTree.flatMap(p => [p, ...(p.children ?? [])])
   const create = useCreateDebt()
   const update = useUpdateDebt()
   const invoiceRef = useRef<HTMLInputElement>(null)
@@ -30,6 +34,8 @@ export default function DebtForm({ debt, onClose }: Props) {
       due_date: debt?.due_date ?? format(new Date(), 'yyyy-MM-dd'),
       description: debt?.description ?? '',
       member_id: debt?.member_id ?? null,
+      category_id: debt?.category_id ?? null,
+      payment_method: debt?.payment_method ?? 'transfer',
     },
   })
 
@@ -50,7 +56,12 @@ export default function DebtForm({ debt, onClose }: Props) {
 
   async function onSubmit(data: DebtFormData) {
     setUploadError(null)
-    const payload = { ...data, amount: Number(data.amount), member_id: data.member_id ? Number(data.member_id) : null }
+    const payload = {
+      ...data,
+      amount: Number(data.amount),
+      member_id: data.member_id ? Number(data.member_id) : null,
+      category_id: data.category_id ? Number(data.category_id) : null,
+    }
     let debtId: number
 
     if (debt) {
@@ -112,6 +123,38 @@ export default function DebtForm({ debt, onClose }: Props) {
           {...register('due_date')}
           className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300"
         />
+      </div>
+
+      {/* Category — used for auto-creating expense on payment */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">หมวดหมู่รายจ่าย (สำหรับบันทึกรายจ่ายเมื่อชำระ)</label>
+        <select
+          {...register('category_id')}
+          className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+        >
+          <option value="">ไม่ระบุ (ไม่บันทึกรายจ่าย)</option>
+          {allCategories.map(c => (
+            <option key={c.id} value={c.id}>
+              {c.icon} {c.name}{c.parent_id ? '' : ' ▸'}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Payment method */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">วิธีชำระเงิน</label>
+        <div className="grid grid-cols-4 gap-2">
+          {PAYMENT_METHODS.map(m => (
+            <label key={m.value} className="relative">
+              <input type="radio" value={m.value} {...register('payment_method')} className="sr-only peer" />
+              <div className="flex flex-col items-center gap-0.5 p-2 rounded-xl border-2 border-gray-200 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 cursor-pointer transition-colors">
+                <span className="text-xl">{m.icon}</span>
+                <span className="text-xs text-gray-600">{m.label}</span>
+              </div>
+            </label>
+          ))}
+        </div>
       </div>
 
       {/* Member */}

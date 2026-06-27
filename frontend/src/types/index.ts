@@ -237,8 +237,11 @@ export type Debt = {
   amount: number
   due_date: string | null
   description: string | null
+  category_id: number | null
+  payment_method: string
   invoice_key: string | null
   slip_key: string | null
+  expense_id: number | null
   status: 'pending' | 'paid'
   paid_at: string | null
   created_at: string
@@ -253,4 +256,6 @@ export type DebtFormData = {
   due_date: string
   description: string
   member_id: number | null
+  category_id: number | null
+  payment_method: string
 }

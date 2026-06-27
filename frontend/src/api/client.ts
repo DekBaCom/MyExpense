@@ -172,16 +172,20 @@ export const api = {
     return res.json()
   },
   getDebtInvoiceUrl: (debtId: number) => `${BASE}/debts/${debtId}/invoice`,
-  uploadDebtSlip: async (debtId: number, file: File): Promise<{ ok: boolean; key: string }> => {
+  uploadDebtSlip: async (debtId: number, file: File, opts?: { amount?: number; date?: string; note?: string; category_id?: number | null }): Promise<{ ok: boolean; key: string; expense_id: number | null }> => {
     const form = new FormData()
     form.append('file', file)
+    if (opts?.amount != null) form.append('amount', String(opts.amount))
+    if (opts?.date) form.append('date', opts.date)
+    if (opts?.note) form.append('note', opts.note)
+    if (opts?.category_id != null) form.append('category_id', String(opts.category_id))
     const res = await fetch(`${BASE}/debts/${debtId}/slip`, { method: 'PUT', credentials: 'include', body: form })
     if (!res.ok) { const e = await res.json().catch(() => ({ error: res.statusText })) as { error: string }; throw new Error(e.error) }
     return res.json()
   },
   getDebtSlipUrl: (debtId: number) => `${BASE}/debts/${debtId}/slip`,
-  payDebt: (id: number) =>
-    request<{ ok: boolean }>(`/debts/${id}/pay`, { method: 'POST' }),
+  payDebt: (id: number, body?: { date?: string; amount?: number; note?: string; category_id?: number | null }) =>
+    request<{ ok: boolean; expense_id: number | null }>(`/debts/${id}/pay`, { method: 'POST', body: JSON.stringify(body ?? {}) }),
   unpayDebt: (id: number) =>
     request<{ ok: boolean }>(`/debts/${id}/unpay`, { method: 'POST' }),
   remindDebt: (id: number) =>

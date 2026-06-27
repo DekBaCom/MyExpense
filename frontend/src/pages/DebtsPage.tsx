@@ -134,6 +134,11 @@ export default function DebtsPage() {
                           ✅ ชำระ {formatDate(debt.paid_at)}
                         </span>
                       )}
+                      {tab === 'paid' && debt.expense_id && (
+                        <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                          📊 บันทึกรายจ่ายแล้ว
+                        </span>
+                      )}
                       {debt.slip_key && (
                         <button
                           onClick={() => setLightboxUrl(api.getDebtSlipUrl(debt.id))}
