@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, differenceInCalendarDays, addMonths } from 'date-fns'
 import { th } from 'date-fns/locale'
 import { Link } from 'react-router-dom'
 import { useUpcomingPayments, usePayRecurring, useUnpayRecurring } from '../hooks/useRecurring'
@@ -14,22 +14,31 @@ function formatDueDate(s: string) {
   return format(parseISO(s), 'd MMM', { locale: th })
 }
 
+function nextMonthStr(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  return format(addMonths(new Date(y, m - 1, 1), 1), 'yyyy-MM')
+}
+
+function daysFromToday(dateStr: string): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return differenceInCalendarDays(parseISO(dateStr), today)
+}
+
 type Props = { month: string }
 
 export default function UpcomingPaymentsCard({ month }: Props) {
+  const nextMonth = nextMonthStr(month)
   const { data, isLoading } = useUpcomingPayments(month)
+  const { data: nextData } = useUpcomingPayments(nextMonth)
   const pay = usePayRecurring()
   const unpay = useUnpayRecurring()
   const [busyId, setBusyId] = useState<number | null>(null)
-  const [payTarget, setPayTarget] = useState<UpcomingPaymentItem | null>(null)
-  const [payForm, setPayForm] = useState({
-    amount: '',
-    date: '',
-    note: '',
-  })
+  const [payTarget, setPayTarget] = useState<{ item: UpcomingPaymentItem; targetMonth: string } | null>(null)
+  const [payForm, setPayForm] = useState({ amount: '', date: '', note: '' })
 
-  function openPayModal(item: UpcomingPaymentItem) {
-    setPayTarget(item)
+  function openPayModal(item: UpcomingPaymentItem, targetMonth: string) {
+    setPayTarget({ item, targetMonth })
     setPayForm({
       amount: String(item.amount),
       date: format(new Date(), 'yyyy-MM-dd'),
@@ -41,11 +50,11 @@ export default function UpcomingPaymentsCard({ month }: Props) {
     if (!payTarget) return
     const amount = parseFloat(payForm.amount)
     if (!amount || amount <= 0) return
-    setBusyId(payTarget.id)
+    setBusyId(payTarget.item.id)
     try {
       await pay.mutateAsync({
-        id: payTarget.id,
-        month,
+        id: payTarget.item.id,
+        month: payTarget.targetMonth,
         amount,
         date: payForm.date || undefined,
         note: payForm.note.trim() || undefined,
@@ -57,7 +66,7 @@ export default function UpcomingPaymentsCard({ month }: Props) {
   }
 
   async function handleUnpay(item: UpcomingPaymentItem) {
-    if (!confirm(`ยกเลิกการชำระ "${item.name}"? (จะลบ expense ที่สร้างไว้)`)) return
+    if (!confirm(`ยกเลิกการชำระ "${item.name}"?`)) return
     setBusyId(item.id)
     try {
       await unpay.mutateAsync({ id: item.id, month })
@@ -86,12 +95,24 @@ export default function UpcomingPaymentsCard({ month }: Props) {
     )
   }
 
+  // Split current month: only show unpaid in list
+  const unpaidItems = data.items.filter(i => i.status !== 'paid' && i.status !== 'skipped')
+  const allPaid = unpaidItems.length === 0
+
   const pct = data.total_due ? Math.round((data.total_paid / data.total_due) * 100) : 0
+
+  // Next month preview: items within notify_days_before window and not yet paid for next month
+  const previewItems = (nextData?.items ?? []).filter(i => {
+    if (i.status === 'paid' || i.status === 'skipped') return false
+    const days = daysFromToday(i.due_date)
+    return days >= 0 && days <= (i.notify_days_before ?? 3)
+  })
+
   const amountDelta = (() => {
     if (!payTarget) return 0
     const a = parseFloat(payForm.amount)
     if (!a) return 0
-    return a - payTarget.amount
+    return a - payTarget.item.amount
   })()
 
   return (
@@ -122,64 +143,47 @@ export default function UpcomingPaymentsCard({ month }: Props) {
           </div>
         </div>
 
-        {/* List */}
-        <div className="space-y-2">
-          {data.items.map(item => {
-            const isPaid = item.status === 'paid'
-            const isOverdue = item.status === 'overdue'
-            const isBusy = busyId === item.id
-
-            return (
-              <div
-                key={item.id}
-                className={clsx(
-                  'flex items-center gap-3 p-3 rounded-xl border',
-                  isPaid ? 'bg-emerald-50/50 border-emerald-100'
-                    : isOverdue ? 'bg-red-50/50 border-red-200'
-                    : 'bg-white border-gray-100'
-                )}
-              >
-                <span
-                  className="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0"
-                  style={{ backgroundColor: `${item.category_color}20` }}
+        {/* All paid state */}
+        {allPaid ? (
+          <div className="text-center py-4">
+            <p className="text-2xl mb-1">🎉</p>
+            <p className="text-sm font-medium text-emerald-600">ชำระครบทุกบิลเดือนนี้แล้ว</p>
+            <p className="text-xs text-gray-400 mt-0.5">รวม ฿{fmt(data.total_paid)}</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {unpaidItems.map(item => {
+              const isOverdue = item.status === 'overdue'
+              const isBusy = busyId === item.id
+              return (
+                <div
+                  key={item.id}
+                  className={clsx(
+                    'flex items-center gap-3 p-3 rounded-xl border',
+                    isOverdue ? 'bg-red-50/50 border-red-200' : 'bg-white border-gray-100'
+                  )}
                 >
-                  {item.category_icon}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className={clsx(
-                    'text-sm font-medium truncate',
-                    isPaid ? 'text-gray-500 line-through' : 'text-gray-900'
-                  )}>
-                    {item.name}
-                  </p>
-                  <div className="flex items-center gap-2 mt-0.5 text-xs">
-                    <span className={isOverdue ? 'text-red-500 font-medium' : 'text-gray-400'}>
-                      📅 {formatDueDate(item.due_date)}
-                    </span>
-                    {isOverdue && <span className="text-red-500 font-medium">เกินกำหนด</span>}
-                    {isPaid && <span className="text-emerald-600">✓ ชำระแล้ว</span>}
+                  <span
+                    className="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0"
+                    style={{ backgroundColor: `${item.category_color}20` }}
+                  >
+                    {item.category_icon}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate text-gray-900">{item.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5 text-xs">
+                      <span className={isOverdue ? 'text-red-500 font-medium' : 'text-gray-400'}>
+                        📅 {formatDueDate(item.due_date)}
+                      </span>
+                      {isOverdue && <span className="text-red-500 font-medium">เกินกำหนด</span>}
+                    </div>
                   </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className={clsx(
-                    'text-sm font-semibold',
-                    isPaid ? 'text-gray-400' : 'text-gray-900'
-                  )}>
-                    ฿{fmt(item.amount)}
-                  </p>
-                </div>
-                <div className="flex-shrink-0">
-                  {isPaid ? (
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-semibold text-gray-900">฿{fmt(item.amount)}</p>
+                  </div>
+                  <div className="flex-shrink-0">
                     <button
-                      onClick={() => handleUnpay(item)}
-                      disabled={isBusy}
-                      className="px-2.5 py-1 text-xs rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      ยกเลิก
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => openPayModal(item)}
+                      onClick={() => openPayModal(item, month)}
                       disabled={isBusy}
                       className={clsx(
                         'px-3 py-1.5 text-xs rounded-lg font-medium disabled:opacity-50',
@@ -190,12 +194,50 @@ export default function UpcomingPaymentsCard({ month }: Props) {
                     >
                       {isBusy ? '...' : 'จ่ายแล้ว'}
                     </button>
-                  )}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Next month preview */}
+        {previewItems.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-xs font-medium text-gray-400 mb-2">📋 บิลเดือนหน้าที่กำลังจะถึง</p>
+            <div className="space-y-2">
+              {previewItems.map(item => {
+                const days = daysFromToday(item.due_date)
+                const isBusy = busyId === item.id
+                return (
+                  <div key={`preview-${item.id}`} className="flex items-center gap-3 p-3 rounded-xl border border-amber-100 bg-amber-50/40">
+                    <span
+                      className="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0"
+                      style={{ backgroundColor: `${item.category_color}20` }}
+                    >
+                      {item.category_icon}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate text-gray-800">{item.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-amber-600">
+                        <span>📅 {formatDueDate(item.due_date)}</span>
+                        <span>· อีก {days} วัน</span>
+                      </div>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-700 flex-shrink-0">฿{fmt(item.amount)}</p>
+                    <button
+                      onClick={() => openPayModal(item, nextMonth)}
+                      disabled={isBusy}
+                      className="px-3 py-1.5 text-xs rounded-lg font-medium bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 flex-shrink-0"
+                    >
+                      {isBusy ? '...' : 'จ่ายแล้ว'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Pay modal */}
@@ -207,27 +249,26 @@ export default function UpcomingPaymentsCard({ month }: Props) {
               <button onClick={() => setPayTarget(null)} className="text-gray-400 text-xl">✕</button>
             </div>
 
-            {/* Bill preview */}
             <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
               <span
                 className="w-10 h-10 rounded-lg flex items-center justify-center text-xl"
-                style={{ backgroundColor: `${payTarget.category_color}20` }}
+                style={{ backgroundColor: `${payTarget.item.category_color}20` }}
               >
-                {payTarget.category_icon}
+                {payTarget.item.category_icon}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{payTarget.name}</p>
+                <p className="text-sm font-medium text-gray-900 truncate">{payTarget.item.name}</p>
                 <p className="text-xs text-gray-400">
-                  ครบกำหนด {formatDueDate(payTarget.due_date)} • บิลปกติ ฿{fmt(payTarget.amount)}
+                  ครบกำหนด {formatDueDate(payTarget.item.due_date)} • บิลปกติ ฿{fmt(payTarget.item.amount)}
+                  {payTarget.targetMonth !== month && (
+                    <span className="ml-1 text-amber-600">(เดือนหน้า)</span>
+                  )}
                 </p>
               </div>
             </div>
 
-            {/* Amount */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                จำนวนเงินที่จ่ายจริง
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">จำนวนเงินที่จ่ายจริง</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">฿</span>
                 <input
@@ -241,43 +282,32 @@ export default function UpcomingPaymentsCard({ month }: Props) {
                 />
               </div>
               {amountDelta !== 0 && payForm.amount && (
-                <p className={clsx(
-                  'mt-1 text-xs font-medium',
-                  amountDelta > 0 ? 'text-red-500' : 'text-emerald-600'
-                )}>
+                <p className={clsx('mt-1 text-xs font-medium', amountDelta > 0 ? 'text-red-500' : 'text-emerald-600')}>
                   {amountDelta > 0
                     ? `↑ เพิ่ม ฿${fmt(amountDelta)} จากปกติ`
                     : `↓ ลด ฿${fmt(-amountDelta)} จากปกติ`}
                 </p>
               )}
-
-              {/* Quick adjust buttons */}
               <div className="flex gap-1.5 mt-2">
                 <button
                   type="button"
-                  onClick={() => setPayForm(p => ({ ...p, amount: String(payTarget.amount) }))}
+                  onClick={() => setPayForm(p => ({ ...p, amount: String(payTarget.item.amount) }))}
                   className="flex-1 px-2 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
                 >
-                  ปกติ ฿{fmt(payTarget.amount)}
+                  ปกติ ฿{fmt(payTarget.item.amount)}
                 </button>
                 {[100, 500, 1000].map(d => (
                   <div key={d} className="flex">
                     <button
                       type="button"
-                      onClick={() => {
-                        const cur = parseFloat(payForm.amount) || 0
-                        setPayForm(p => ({ ...p, amount: String(Math.max(0, cur - d)) }))
-                      }}
+                      onClick={() => setPayForm(p => ({ ...p, amount: String(Math.max(0, (parseFloat(p.amount) || 0) - d) ) }))}
                       className="px-2 py-1.5 text-xs rounded-l-lg border border-r-0 border-gray-200 text-gray-600 hover:bg-gray-50"
                     >
                       −{d}
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        const cur = parseFloat(payForm.amount) || 0
-                        setPayForm(p => ({ ...p, amount: String(cur + d) }))
-                      }}
+                      onClick={() => setPayForm(p => ({ ...p, amount: String((parseFloat(p.amount) || 0) + d) }))}
                       className="px-2 py-1.5 text-xs rounded-r-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
                     >
                       +{d}
@@ -287,7 +317,6 @@ export default function UpcomingPaymentsCard({ month }: Props) {
               </div>
             </div>
 
-            {/* Date */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">วันที่จ่าย</label>
               <input
@@ -298,7 +327,6 @@ export default function UpcomingPaymentsCard({ month }: Props) {
               />
             </div>
 
-            {/* Note */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ (ไม่บังคับ)</label>
               <input
@@ -311,7 +339,6 @@ export default function UpcomingPaymentsCard({ month }: Props) {
               />
             </div>
 
-            {/* Buttons */}
             <div className="flex gap-3 pt-1">
               <button
                 onClick={() => setPayTarget(null)}
@@ -321,10 +348,10 @@ export default function UpcomingPaymentsCard({ month }: Props) {
               </button>
               <button
                 onClick={confirmPay}
-                disabled={busyId === payTarget.id || !parseFloat(payForm.amount)}
+                disabled={busyId === payTarget.item.id || !parseFloat(payForm.amount)}
                 className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50"
               >
-                {busyId === payTarget.id ? 'กำลังบันทึก...' : 'ยืนยันการชำระ'}
+                {busyId === payTarget.item.id ? 'กำลังบันทึก...' : 'ยืนยันการชำระ'}
               </button>
             </div>
           </div>
