@@ -61,6 +61,7 @@ export type LineRecipient = {
   notify_on_add: number
   notify_on_budget_alert: number
   notify_on_recurring: number
+  notify_on_summary: number
   created_at: string
   updated_at: string
 }

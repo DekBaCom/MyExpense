@@ -33,6 +33,7 @@ export type LineRecipient = {
   notify_on_add: boolean
   notify_on_budget_alert: boolean
   notify_on_recurring: boolean
+  notify_on_summary: boolean
   member_name?: string | null
   member_emoji?: string | null
 }

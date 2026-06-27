@@ -16,6 +16,7 @@ const recipientSchema = z.object({
   notify_on_add: z.boolean().default(true),
   notify_on_budget_alert: z.boolean().default(true),
   notify_on_recurring: z.boolean().default(true),
+  notify_on_summary: z.boolean().default(true),
 })
 
 function maskToken(token: string): string {
@@ -43,6 +44,7 @@ settings.get('/line', async (c) => {
     notify_on_add: r.notify_on_add === 1,
     notify_on_budget_alert: r.notify_on_budget_alert === 1,
     notify_on_recurring: r.notify_on_recurring === 1,
+    notify_on_summary: r.notify_on_summary === 1,
   })))
 })
 
@@ -53,8 +55,8 @@ settings.post('/line', zValidator('json', recipientSchema), async (c) => {
 
   const result = await c.env.DB.prepare(
     `INSERT INTO line_recipients
-       (user_id, member_id, label, channel_token, line_user_id, notify_on_add, notify_on_budget_alert, notify_on_recurring)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       (user_id, member_id, label, channel_token, line_user_id, notify_on_add, notify_on_budget_alert, notify_on_recurring, notify_on_summary)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id, member_id) DO UPDATE SET
        label = excluded.label,
        channel_token = excluded.channel_token,
@@ -62,6 +64,7 @@ settings.post('/line', zValidator('json', recipientSchema), async (c) => {
        notify_on_add = excluded.notify_on_add,
        notify_on_budget_alert = excluded.notify_on_budget_alert,
        notify_on_recurring = excluded.notify_on_recurring,
+       notify_on_summary = excluded.notify_on_summary,
        updated_at = CURRENT_TIMESTAMP
      RETURNING id`
   )
@@ -73,7 +76,8 @@ settings.post('/line', zValidator('json', recipientSchema), async (c) => {
       body.line_user_id,
       body.notify_on_add ? 1 : 0,
       body.notify_on_budget_alert ? 1 : 0,
-      body.notify_on_recurring ? 1 : 0
+      body.notify_on_recurring ? 1 : 0,
+      body.notify_on_summary ? 1 : 0
     )
     .first<{ id: number }>()
 
@@ -105,6 +109,7 @@ settings.put('/line/:id', zValidator('json', recipientSchema.partial()), async (
   if (body.notify_on_add !== undefined) { fields.push('notify_on_add = ?'); vals.push(body.notify_on_add ? 1 : 0) }
   if (body.notify_on_budget_alert !== undefined) { fields.push('notify_on_budget_alert = ?'); vals.push(body.notify_on_budget_alert ? 1 : 0) }
   if (body.notify_on_recurring !== undefined) { fields.push('notify_on_recurring = ?'); vals.push(body.notify_on_recurring ? 1 : 0) }
+  if (body.notify_on_summary !== undefined) { fields.push('notify_on_summary = ?'); vals.push(body.notify_on_summary ? 1 : 0) }
 
   if (fields.length === 0) return c.json({ error: 'No fields to update' }, 400)
   fields.push('updated_at = CURRENT_TIMESTAMP')

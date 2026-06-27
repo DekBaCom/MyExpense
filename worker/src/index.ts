@@ -14,6 +14,7 @@ import incomes from './routes/incomes'
 import incomeCategories from './routes/income-categories'
 import recurring, { runDailyRecurringCheck } from './routes/recurring'
 import debts from './routes/debts'
+import summary, { runDailySummary, runMonthlySummary } from './routes/summary'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
@@ -44,6 +45,7 @@ app.route('/api/incomes', incomes)
 app.route('/api/income-categories', incomeCategories)
 app.route('/api/recurring', recurring)
 app.route('/api/debts', debts)
+app.route('/api/summary', summary)
 
 app.get('/api/health', (c) => c.json({ status: 'ok', ts: new Date().toISOString() }))
 
@@ -55,12 +57,28 @@ app.onError((err, c) => {
 
 export default {
   fetch: app.fetch,
-  async scheduled(_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext): Promise<void> {
-    // Daily cron: check recurring payments and send LINE reminders
-    ctx.waitUntil(
-      runDailyRecurringCheck(env)
-        .then(r => console.log('recurring check:', r))
-        .catch(err => console.error('recurring check error:', err))
-    )
+  async scheduled(event: ScheduledEvent, env: Bindings, ctx: ExecutionContext): Promise<void> {
+    if (event.cron === '0 2 * * *') {
+      // 09:00 BKK — recurring payment reminders
+      ctx.waitUntil(
+        runDailyRecurringCheck(env)
+          .then(r => console.log('recurring check:', r))
+          .catch(err => console.error('recurring check error:', err))
+      )
+    } else if (event.cron === '0 14 * * *') {
+      // 21:00 BKK — daily expense summary
+      ctx.waitUntil(
+        runDailySummary(env)
+          .then(r => console.log('daily summary:', r))
+          .catch(err => console.error('daily summary error:', err))
+      )
+    } else if (event.cron === '0 1 1 * *') {
+      // 08:00 BKK on 1st of month — monthly summary
+      ctx.waitUntil(
+        runMonthlySummary(env)
+          .then(r => console.log('monthly summary:', r))
+          .catch(err => console.error('monthly summary error:', err))
+      )
+    }
   },
 }

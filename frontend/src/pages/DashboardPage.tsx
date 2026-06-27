@@ -6,6 +6,7 @@ import {
   PieChart, Pie, Cell, Legend,
 } from 'recharts'
 import { useDashboard } from '../hooks/useDashboard'
+import { api } from '../api/client'
 import BudgetCard from '../components/BudgetCard'
 import ExpenseList from '../components/ExpenseList'
 import IncomeList from '../components/IncomeList'
@@ -31,7 +32,23 @@ export default function DashboardPage() {
   const [showExpForm, setShowExpForm] = useState(false)
   const [showIncForm, setShowIncForm] = useState(false)
   const [showBudgetCards, setShowBudgetCards] = useState(false)
+  const [sendingLine, setSendingLine] = useState(false)
+  const [lineSendResult, setLineSendResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const { data, isLoading } = useDashboard(month)
+
+  async function handleSendSummary() {
+    setSendingLine(true)
+    setLineSendResult(null)
+    try {
+      const res = await api.sendSummary(month)
+      setLineSendResult({ ok: true, msg: `ส่งสำเร็จ ${res.sent} คน` })
+    } catch (e) {
+      setLineSendResult({ ok: false, msg: (e as Error).message })
+    } finally {
+      setSendingLine(false)
+      setTimeout(() => setLineSendResult(null), 4000)
+    }
+  }
 
   const prevMonth = () => setMonth(format(subMonths(parseISO(`${month}-01`), 1), 'yyyy-MM'))
   const nextMonth = () => {
@@ -53,7 +70,25 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-500 text-sm mt-0.5">ภาพรวมการเงินของบ้าน</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <div className="relative">
+            <button
+              onClick={handleSendSummary}
+              disabled={sendingLine}
+              className="flex items-center gap-1.5 bg-green-500 text-white px-3 sm:px-4 py-2.5 rounded-xl font-medium hover:bg-green-600 shadow-sm text-sm disabled:opacity-60"
+              title="ส่งสรุปไป LINE"
+            >
+              {sendingLine ? '⏳' : '📊'} <span className="hidden sm:inline">LINE</span>
+            </button>
+            {lineSendResult && (
+              <div className={clsx(
+                'absolute right-0 top-11 z-10 whitespace-nowrap text-xs px-3 py-1.5 rounded-lg shadow',
+                lineSendResult.ok ? 'bg-green-600 text-white' : 'bg-red-500 text-white'
+              )}>
+                {lineSendResult.ok ? '✅ ' : '❌ '}{lineSendResult.msg}
+              </div>
+            )}
+          </div>
           <button
             onClick={() => setShowIncForm(true)}
             className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 sm:px-4 py-2.5 rounded-xl font-medium hover:bg-emerald-700 shadow-sm text-sm"

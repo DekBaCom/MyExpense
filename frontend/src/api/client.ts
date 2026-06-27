@@ -68,6 +68,7 @@ export const api = {
     notify_on_add?: boolean
     notify_on_budget_alert?: boolean
     notify_on_recurring?: boolean
+    notify_on_summary?: boolean
   }) => request<{ id: number }>('/settings/line', { method: 'POST', body: JSON.stringify(body) }),
   updateLineRecipient: (id: number, body: Partial<{
     label: string
@@ -77,11 +78,14 @@ export const api = {
     notify_on_add: boolean
     notify_on_budget_alert: boolean
     notify_on_recurring: boolean
+    notify_on_summary: boolean
   }>) => request<{ ok: boolean }>(`/settings/line/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteLineRecipient: (id: number) =>
     request<{ ok: boolean }>(`/settings/line/${id}`, { method: 'DELETE' }),
   testLineRecipient: (id: number) =>
     request<{ ok: boolean }>(`/settings/line/${id}/test`, { method: 'POST' }),
+  sendSummary: (month: string) =>
+    request<{ ok: boolean; sent: number }>(`/summary/send?month=${month}`, { method: 'POST' }),
 
   // Budgets
   getBudgets: (month: string) =>

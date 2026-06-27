@@ -105,6 +105,112 @@ export function buildBudgetAlertMessage(opts: {
   ].join('\n')
 }
 
+export function buildDailySummaryMessage(opts: {
+  month: string
+  today: string
+  todayTotal: number
+  totalSpent: number
+  totalBudget: number
+  categories: { name: string; icon: string; spent: number }[]
+  upcomingBills: { name: string; amount: number; due_date: string; icon: string }[]
+}): string {
+  const budgetPct = opts.totalBudget > 0 ? Math.round((opts.totalSpent / opts.totalBudget) * 100) : null
+  const remaining = opts.totalBudget > 0 ? opts.totalBudget - opts.totalSpent : null
+
+  const lines = [
+    `📊 สรุปรายวัน — ${formatDateTH(opts.today)}`,
+    '━━━━━━━━━━━━━━━',
+  ]
+
+  if (opts.todayTotal > 0) {
+    lines.push(`💸 วันนี้ใช้ไป ฿${opts.todayTotal.toLocaleString('th-TH', { minimumFractionDigits: 0 })}`)
+  } else {
+    lines.push('💸 วันนี้ยังไม่มีรายจ่าย')
+  }
+
+  if (opts.totalBudget > 0) {
+    const bar = budgetBar(budgetPct!)
+    lines.push(`📅 เดือนนี้ ฿${fmt(opts.totalSpent)} / ฿${fmt(opts.totalBudget)} ${bar} ${budgetPct}%`)
+    if (remaining! < 0) {
+      lines.push(`⚠️ เกินงบ ฿${fmt(Math.abs(remaining!))}`)
+    } else {
+      lines.push(`✅ เหลือ ฿${fmt(remaining!)}`)
+    }
+  } else {
+    lines.push(`📅 เดือนนี้รวม ฿${fmt(opts.totalSpent)}`)
+  }
+
+  if (opts.categories.length > 0) {
+    lines.push('', '🏷️ หมวดที่ใช้มากสุด')
+    for (const cat of opts.categories.slice(0, 3)) {
+      const pct = opts.totalSpent > 0 ? Math.round((cat.spent / opts.totalSpent) * 100) : 0
+      lines.push(`${cat.icon} ${cat.name} ฿${fmt(cat.spent)} (${pct}%)`)
+    }
+  }
+
+  if (opts.upcomingBills.length > 0) {
+    lines.push('', '🔔 บิลที่ต้องจ่ายเร็วๆนี้')
+    for (const bill of opts.upcomingBills.slice(0, 3)) {
+      lines.push(`${bill.icon} ${bill.name} ฿${fmt(bill.amount)} • ${formatDateTH(bill.due_date)}`)
+    }
+  }
+
+  return lines.join('\n')
+}
+
+export function buildMonthlySummaryMessage(opts: {
+  month: string
+  totalSpent: number
+  totalIncome: number
+  totalBudget: number
+  categories: { name: string; icon: string; spent: number }[]
+  pendingDebtCount: number
+  pendingDebtTotal: number
+}): string {
+  const net = opts.totalIncome - opts.totalSpent
+  const budgetPct = opts.totalBudget > 0 ? Math.round((opts.totalSpent / opts.totalBudget) * 100) : null
+
+  const [y, m] = opts.month.split('-').map(Number)
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+  const monthLabel = `${months[m - 1]} ${y + 543}`
+
+  const lines = [
+    `📋 สรุปประจำเดือน ${monthLabel}`,
+    '━━━━━━━━━━━━━━━',
+    `📥 รายรับ +฿${fmt(opts.totalIncome)}`,
+    `📤 รายจ่าย −฿${fmt(opts.totalSpent)}`,
+    `${net >= 0 ? '💚' : '🔴'} คงเหลือ ${net >= 0 ? '' : '−'}฿${fmt(Math.abs(net))}`,
+  ]
+
+  if (opts.totalBudget > 0) {
+    const bar = budgetBar(budgetPct!)
+    lines.push(`📊 งบประมาณ ${bar} ${budgetPct}% (฿${fmt(opts.totalSpent)} / ฿${fmt(opts.totalBudget)})`)
+  }
+
+  if (opts.categories.length > 0) {
+    lines.push('', '🏷️ รายจ่ายแต่ละหมวด')
+    for (const cat of opts.categories) {
+      const pct = opts.totalSpent > 0 ? Math.round((cat.spent / opts.totalSpent) * 100) : 0
+      lines.push(`${cat.icon} ${cat.name} ฿${fmt(cat.spent)} (${pct}%)`)
+    }
+  }
+
+  if (opts.pendingDebtCount > 0) {
+    lines.push('', `💳 หนี้คงค้าง ${opts.pendingDebtCount} รายการ รวม ฿${fmt(opts.pendingDebtTotal)}`)
+  }
+
+  return lines.join('\n')
+}
+
+function fmt(n: number): string {
+  return n.toLocaleString('th-TH', { minimumFractionDigits: 0 })
+}
+
+function budgetBar(pct: number): string {
+  const filled = Math.round(Math.min(pct, 100) / 10)
+  return '█'.repeat(filled) + '░'.repeat(10 - filled)
+}
+
 function formatDateTH(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')
   const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']

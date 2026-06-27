@@ -14,6 +14,7 @@ type FormData = {
   notify_on_add: boolean
   notify_on_budget_alert: boolean
   notify_on_recurring: boolean
+  notify_on_summary: boolean
 }
 
 const emptyForm: FormData = {
@@ -24,6 +25,7 @@ const emptyForm: FormData = {
   notify_on_add: true,
   notify_on_budget_alert: true,
   notify_on_recurring: true,
+  notify_on_summary: true,
 }
 
 export default function SettingsPage() {
@@ -84,6 +86,7 @@ export default function SettingsPage() {
       notify_on_add: r.notify_on_add,
       notify_on_budget_alert: r.notify_on_budget_alert,
       notify_on_recurring: r.notify_on_recurring,
+      notify_on_summary: r.notify_on_summary,
     })
     setError('')
   }
@@ -177,6 +180,7 @@ export default function SettingsPage() {
                       {r.notify_on_add && <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">บันทึก</span>}
                       {r.notify_on_budget_alert && <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">เกินงบ</span>}
                       {r.notify_on_recurring && <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">บิลรายเดือน</span>}
+                      {r.notify_on_summary && <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full">สรุปรายวัน</span>}
                     </div>
                     {testStatus?.id === r.id && (
                       <p className={clsx(
@@ -295,6 +299,7 @@ export default function SettingsPage() {
                 { key: 'notify_on_add' as const,           label: 'บันทึกรายจ่ายใหม่' },
                 { key: 'notify_on_budget_alert' as const,  label: 'ใช้เกินงบประมาณ' },
                 { key: 'notify_on_recurring' as const,     label: 'บิลรายเดือนใกล้ครบกำหนด/เกินกำหนด' },
+                { key: 'notify_on_summary' as const,       label: 'สรุปยอดรายวัน (ทุกคืน 21:00) และรายเดือน' },
               ].map(opt => (
                 <label key={opt.key} className="flex items-center justify-between text-sm cursor-pointer">
                   <span className="text-gray-700">{opt.label}</span>

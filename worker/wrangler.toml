@@ -26,9 +26,12 @@ id = "bb88bdfe34df4e0da8482b9684625255"
 [dev]
 port = 8787
 
-# Daily cron: run at 02:00 UTC = 09:00 Bangkok
 [triggers]
-crons = ["0 2 * * *"]
+crons = [
+  "0 2 * * *",   # 09:00 BKK — recurring payment reminders
+  "0 14 * * *",  # 21:00 BKK — daily expense summary
+  "0 1 1 * *",   # 08:00 BKK on 1st — monthly summary
+]
 
 [[r2_buckets]]
 binding = "RECEIPTS"
