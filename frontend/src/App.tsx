@@ -10,6 +10,7 @@ import RecurringPage from './pages/RecurringPage'
 import BudgetPage from './pages/BudgetPage'
 import MembersPage from './pages/MembersPage'
 import SettingsPage from './pages/SettingsPage'
+import DebtsPage from './pages/DebtsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="recurring" element={<RecurringPage />} />
             <Route path="budget" element={<BudgetPage />} />
             <Route path="members" element={<MembersPage />} />
+            <Route path="debts" element={<DebtsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

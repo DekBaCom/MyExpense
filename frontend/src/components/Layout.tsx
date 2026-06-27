@@ -12,6 +12,7 @@ const navItems = [
   { to: '/recurring', icon: '🔔', label: 'บิลรายเดือน' },
   { to: '/budget',    icon: '💰', label: 'งบประมาณ' },
   { to: '/members',   icon: '👨‍👩‍👧', label: 'สมาชิก' },
+  { to: '/debts',     icon: '💳', label: 'ค้างชำระ' },
   { to: '/settings',  icon: '⚙️', label: 'ตั้งค่า' },
 ]
 

@@ -228,3 +228,29 @@ export type UpcomingPayments = {
   overdue_count: number
   items: UpcomingPaymentItem[]
 }
+
+export type Debt = {
+  id: number
+  user_id: number
+  member_id: number | null
+  debtor_name: string
+  amount: number
+  due_date: string | null
+  description: string | null
+  invoice_key: string | null
+  slip_key: string | null
+  status: 'pending' | 'paid'
+  paid_at: string | null
+  created_at: string
+  updated_at: string
+  member_name?: string | null
+  member_emoji?: string | null
+}
+
+export type DebtFormData = {
+  debtor_name: string
+  amount: number
+  due_date: string
+  description: string
+  member_id: number | null
+}

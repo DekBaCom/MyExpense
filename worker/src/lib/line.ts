@@ -110,3 +110,50 @@ function formatDateTH(dateStr: string): string {
   const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear() + 543}`
 }
+
+export function buildDebtCreatedMessage(opts: {
+  debtorName: string
+  amount: number
+  dueDate: string | null
+  description: string | null
+}): string {
+  const lines = [
+    '🧾 รายการทวงหนี้ใหม่',
+    `━━━━━━━━━━━━━━━`,
+    `👤 ${opts.debtorName}`,
+    `💰 ฿${opts.amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`,
+  ]
+  if (opts.dueDate) lines.push(`📅 ครบกำหนด ${formatDateTH(opts.dueDate)}`)
+  if (opts.description) lines.push(`📝 ${opts.description}`)
+  return lines.join('\n')
+}
+
+export function buildDebtPaidMessage(opts: {
+  debtorName: string
+  amount: number
+}): string {
+  return [
+    '✅ รับชำระหนี้แล้ว',
+    `━━━━━━━━━━━━━━━`,
+    `👤 ${opts.debtorName}`,
+    `💰 ฿${opts.amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`,
+  ].join('\n')
+}
+
+export function buildDebtReminderMessage(opts: {
+  debtorName: string
+  amount: number
+  dueDate: string | null
+  description: string | null
+}): string {
+  const lines = [
+    '🔔 แจ้งเตือนการชำระหนี้',
+    `━━━━━━━━━━━━━━━`,
+    `👤 ${opts.debtorName}`,
+    `💰 ฿${opts.amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`,
+  ]
+  if (opts.dueDate) lines.push(`📅 ครบกำหนด ${formatDateTH(opts.dueDate)}`)
+  if (opts.description) lines.push(`📝 ${opts.description}`)
+  lines.push('━━━━━━━━━━━━━━━', 'กรุณาชำระตามกำหนดด้วยนะครับ/ค่ะ')
+  return lines.join('\n')
+}

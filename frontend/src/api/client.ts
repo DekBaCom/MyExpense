@@ -152,4 +152,38 @@ export const api = {
     request<{ ok: boolean }>(`/recurring/${id}/unpay`, { method: 'POST', body: JSON.stringify({ month }) }),
   checkRecurringNow: () =>
     request<{ users_processed: number; messages_sent: number }>('/recurring/check-now', { method: 'POST' }),
+
+  // Debts
+  getDebts: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString()
+    return request<{ data: import('../types').Debt[]; total: number }>(`/debts${qs ? `?${qs}` : ''}`)
+  },
+  createDebt: (body: import('../types').DebtFormData) =>
+    request<{ id: number }>('/debts', { method: 'POST', body: JSON.stringify(body) }),
+  updateDebt: (id: number, body: Partial<import('../types').DebtFormData>) =>
+    request<{ ok: boolean }>(`/debts/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteDebt: (id: number) =>
+    request<{ ok: boolean }>(`/debts/${id}`, { method: 'DELETE' }),
+  uploadDebtInvoice: async (debtId: number, file: File): Promise<{ ok: boolean; key: string }> => {
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch(`${BASE}/debts/${debtId}/invoice`, { method: 'PUT', credentials: 'include', body: form })
+    if (!res.ok) { const e = await res.json().catch(() => ({ error: res.statusText })) as { error: string }; throw new Error(e.error) }
+    return res.json()
+  },
+  getDebtInvoiceUrl: (debtId: number) => `${BASE}/debts/${debtId}/invoice`,
+  uploadDebtSlip: async (debtId: number, file: File): Promise<{ ok: boolean; key: string }> => {
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch(`${BASE}/debts/${debtId}/slip`, { method: 'PUT', credentials: 'include', body: form })
+    if (!res.ok) { const e = await res.json().catch(() => ({ error: res.statusText })) as { error: string }; throw new Error(e.error) }
+    return res.json()
+  },
+  getDebtSlipUrl: (debtId: number) => `${BASE}/debts/${debtId}/slip`,
+  payDebt: (id: number) =>
+    request<{ ok: boolean }>(`/debts/${id}/pay`, { method: 'POST' }),
+  unpayDebt: (id: number) =>
+    request<{ ok: boolean }>(`/debts/${id}/unpay`, { method: 'POST' }),
+  remindDebt: (id: number) =>
+    request<{ ok: boolean; sent: number }>(`/debts/${id}/remind`, { method: 'POST' }),
 }
