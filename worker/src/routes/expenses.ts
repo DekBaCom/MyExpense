@@ -96,7 +96,7 @@ expenses.post('/', zValidator('json', expenseSchema), async (c) => {
   const expenseId = result?.id
   const expenseMonth = body.date.slice(0, 7)
 
-  await c.env.SESSIONS.delete(`dashboard:${userId}:${expenseMonth}`)
+  await c.env.SESSIONS.delete(`dashboard:v2:${userId}:${expenseMonth}`)
 
   // Fire LINE notifications async (non-blocking)
   c.executionCtx.waitUntil(
@@ -158,7 +158,7 @@ expenses.put('/:id', zValidator('json', expenseSchema.partial()), async (c) => {
 
   const months = new Set([existing.date.slice(0, 7)])
   if (body.date) months.add(body.date.slice(0, 7))
-  await Promise.all([...months].map(m => c.env.SESSIONS.delete(`dashboard:${userId}:${m}`)))
+  await Promise.all([...months].map(m => c.env.SESSIONS.delete(`dashboard:v2:${userId}:${m}`)))
 
   return c.json({ ok: true })
 })
@@ -178,7 +178,7 @@ expenses.delete('/:id', async (c) => {
 
   if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
 
-  if (existing) await c.env.SESSIONS.delete(`dashboard:${userId}:${existing.date.slice(0, 7)}`)
+  if (existing) await c.env.SESSIONS.delete(`dashboard:v2:${userId}:${existing.date.slice(0, 7)}`)
 
   return c.json({ ok: true })
 })

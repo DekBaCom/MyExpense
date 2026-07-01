@@ -117,18 +117,17 @@ export default function DashboardPage() {
         <div className="text-center py-16 text-gray-400 animate-pulse">กำลังโหลด...</div>
       ) : data ? (
         <>
-          {/* Summary: Available (prev month income) / Expense / Net / This month income */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            {/* Available = previous month income (funds available for this month's bills) */}
+          {/* Summary: Income (starting) / Expense / Net */}
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
             <div className="bg-white rounded-2xl p-4 border border-gray-100">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center text-base">🏦</div>
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-base">📥</div>
                 <p className="text-xs text-gray-500">เงินตั้งต้น</p>
               </div>
-              <p className="text-xl sm:text-2xl font-bold text-sky-700">
-                ฿{fmt(data.prev_month_income)}
+              <p className="text-xl sm:text-2xl font-bold text-emerald-700">
+                ฿{fmt(data.total_income)}
               </p>
-              <p className="text-[10px] text-gray-400 mt-0.5">รายรับเดือนก่อน</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">รายรับเดือนนี้</p>
             </div>
 
             <div className="bg-white rounded-2xl p-4 border border-gray-100">
@@ -161,18 +160,7 @@ export default function DashboardPage() {
               )}>
                 {netPositive ? '' : '−'}฿{fmt(Math.abs(data.net_balance))}
               </p>
-              <p className="text-[10px] text-gray-500 mt-0.5">ตั้งต้น − จ่าย</p>
-            </div>
-
-            <div className="bg-white rounded-2xl p-4 border border-gray-100">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-base">📥</div>
-                <p className="text-xs text-gray-500">รายรับเข้า</p>
-              </div>
-              <p className="text-xl sm:text-2xl font-bold text-emerald-600">
-                +฿{fmt(data.total_income)}
-              </p>
-              <p className="text-[10px] text-gray-400 mt-0.5">สำหรับเดือนหน้า</p>
+              <p className="text-[10px] text-gray-500 mt-0.5">รายรับ − จ่าย</p>
             </div>
           </div>
 

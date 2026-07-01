@@ -16,7 +16,7 @@ dashboard.get('/', async (c) => {
   const month = c.req.query('month') ?? new Date().toISOString().slice(0, 7)
   const prevMonth = previousMonth(month)
 
-  const cacheKey = `dashboard:${userId}:${month}`
+  const cacheKey = `dashboard:v2:${userId}:${month}`
   const cached = await c.env.SESSIONS.get(cacheKey)
   if (cached) {
     return c.json(JSON.parse(cached))
@@ -200,7 +200,7 @@ dashboard.get('/', async (c) => {
     total_income: totalIncome,
     prev_month_income: prevIncome,
     // Net balance pattern: previous month income pays for this month's bills
-    net_balance: prevIncome - totalSpent,
+    net_balance: totalIncome - totalSpent,
     total_budget: totalBudgetRow?.total_budget ?? 0,
     by_category: categoriesWithPct,
     by_income_category: byIncomeCategory.results,
