@@ -36,6 +36,7 @@ export default function UpcomingPaymentsCard({ month }: Props) {
   const [busyId, setBusyId] = useState<number | null>(null)
   const [payTarget, setPayTarget] = useState<{ item: UpcomingPaymentItem; targetMonth: string } | null>(null)
   const [payForm, setPayForm] = useState({ amount: '', date: '', note: '' })
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   function openPayModal(item: UpcomingPaymentItem, targetMonth: string) {
     setPayTarget({ item, targetMonth })
@@ -52,6 +53,7 @@ export default function UpcomingPaymentsCard({ month }: Props) {
     if (!amount || amount <= 0) return
     setBusyId(payTarget.item.id)
     try {
+      const itemName = payTarget.item.name
       await pay.mutateAsync({
         id: payTarget.item.id,
         month: payTarget.targetMonth,
@@ -60,6 +62,8 @@ export default function UpcomingPaymentsCard({ month }: Props) {
         note: payForm.note.trim() || undefined,
       })
       setPayTarget(null)
+      setSuccessMsg(`✅ ชำระ "${itemName}" เรียบร้อย — เพิ่มเป็นรายจ่ายอัตโนมัติแล้ว`)
+      setTimeout(() => setSuccessMsg(null), 4000)
     } finally {
       setBusyId(null)
     }
@@ -117,6 +121,11 @@ export default function UpcomingPaymentsCard({ month }: Props) {
 
   return (
     <>
+      {successMsg && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-5 py-2.5 rounded-xl shadow-lg text-sm font-medium whitespace-nowrap">
+          {successMsg}
+        </div>
+      )}
       <div className="bg-white rounded-2xl p-5 border border-gray-100">
         {/* Header */}
         <div className="flex items-center justify-between mb-3">

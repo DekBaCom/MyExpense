@@ -4,6 +4,7 @@ import { z } from 'zod'
 import type { Bindings, Variables, RecurringPayment, UpcomingPaymentItem, UpcomingPayments } from '../types'
 import { authMiddleware } from '../middleware/auth'
 import { computeDueDate, currentMonthBKK, daysUntil, todayBKK } from '../lib/recurring'
+import { sendLineMessage, buildBillPaidMessage } from '../lib/line'
 
 const recurring = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 recurring.use('*', authMiddleware)
@@ -222,6 +223,28 @@ recurring.post('/:id/pay', zValidator('json', paySchema), async (c) => {
   )
     .bind(id, month, expenseId)
     .first<{ id: number }>()
+
+  c.executionCtx.waitUntil(
+    (async () => {
+      const [recipients, catRow] = await Promise.all([
+        c.env.DB.prepare(
+          `SELECT channel_token, line_user_id FROM line_recipients WHERE user_id = ? AND notify_on_recurring = 1`
+        ).bind(userId).all<{ channel_token: string; line_user_id: string }>(),
+        c.env.DB.prepare('SELECT name, icon FROM categories WHERE id = ?')
+          .bind(r.category_id).first<{ name: string; icon: string }>(),
+      ])
+      if (recipients.results.length === 0) return
+      const msg = buildBillPaidMessage({
+        name: r.name,
+        amount: finalAmount,
+        date: paidDate,
+        icon: catRow?.icon ?? '💰',
+        category: catRow?.name ?? '',
+        month,
+      })
+      await Promise.all(recipients.results.map(rec => sendLineMessage(rec.channel_token, rec.line_user_id, msg)))
+    })()
+  )
 
   return c.json({ log_id: log?.id, expense_id: expenseId })
 })

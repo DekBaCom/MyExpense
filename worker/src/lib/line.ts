@@ -211,6 +211,27 @@ function budgetBar(pct: number): string {
   return '█'.repeat(filled) + '░'.repeat(10 - filled)
 }
 
+export function buildBillPaidMessage(opts: {
+  name: string
+  amount: number
+  date: string
+  icon: string
+  category: string
+  month: string
+}): string {
+  const [, m] = opts.month.split('-').map(Number)
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+  const monthLabel = months[m - 1]
+  return [
+    '✅ ชำระบิลรายเดือนแล้ว',
+    '━━━━━━━━━━━━━━━',
+    `${opts.icon} ${opts.name}`,
+    `💰 ฿${opts.amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`,
+    `📅 ${formatDateTH(opts.date)}`,
+    `📋 ประจำเดือน ${monthLabel}`,
+  ].join('\n')
+}
+
 function formatDateTH(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')
   const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
