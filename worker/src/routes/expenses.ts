@@ -94,6 +94,9 @@ expenses.post('/', zValidator('json', expenseSchema), async (c) => {
     .first<{ id: number }>()
 
   const expenseId = result?.id
+  const expenseMonth = body.date.slice(0, 7)
+
+  await c.env.SESSIONS.delete(`dashboard:${userId}:${expenseMonth}`)
 
   // Fire LINE notifications async (non-blocking)
   c.executionCtx.waitUntil(
@@ -128,10 +131,10 @@ expenses.put('/:id', zValidator('json', expenseSchema.partial()), async (c) => {
   const body = c.req.valid('json')
 
   const existing = await c.env.DB.prepare(
-    'SELECT id FROM expenses WHERE id = ? AND user_id = ?'
+    'SELECT id, date FROM expenses WHERE id = ? AND user_id = ?'
   )
     .bind(id, userId)
-    .first()
+    .first<{ id: number; date: string }>()
   if (!existing) return c.json({ error: 'Not found' }, 404)
 
   const fields: string[] = []
@@ -153,12 +156,19 @@ expenses.put('/:id', zValidator('json', expenseSchema.partial()), async (c) => {
     .bind(...vals, id, userId)
     .run()
 
+  const months = new Set([existing.date.slice(0, 7)])
+  if (body.date) months.add(body.date.slice(0, 7))
+  await Promise.all([...months].map(m => c.env.SESSIONS.delete(`dashboard:${userId}:${m}`)))
+
   return c.json({ ok: true })
 })
 
 expenses.delete('/:id', async (c) => {
   const userId = c.get('userId')
   const id = parseInt(c.req.param('id'))
+
+  const existing = await c.env.DB.prepare('SELECT date FROM expenses WHERE id = ? AND user_id = ?')
+    .bind(id, userId).first<{ date: string }>()
 
   const result = await c.env.DB.prepare(
     'DELETE FROM expenses WHERE id = ? AND user_id = ?'
@@ -167,6 +177,9 @@ expenses.delete('/:id', async (c) => {
     .run()
 
   if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
+
+  if (existing) await c.env.SESSIONS.delete(`dashboard:${userId}:${existing.date.slice(0, 7)}`)
+
   return c.json({ ok: true })
 })
 

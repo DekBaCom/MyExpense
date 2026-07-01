@@ -224,6 +224,12 @@ recurring.post('/:id/pay', zValidator('json', paySchema), async (c) => {
     .bind(id, month, expenseId)
     .first<{ id: number }>()
 
+  // Clear dashboard KV cache so next refetch returns fresh data with the new expense
+  const expenseMonth = paidDate.slice(0, 7)
+  const cacheDeletes: Promise<void>[] = [c.env.SESSIONS.delete(`dashboard:${userId}:${month}`)]
+  if (expenseMonth !== month) cacheDeletes.push(c.env.SESSIONS.delete(`dashboard:${userId}:${expenseMonth}`))
+  await Promise.all(cacheDeletes)
+
   c.executionCtx.waitUntil(
     (async () => {
       const [recipients, catRow] = await Promise.all([
@@ -273,6 +279,8 @@ recurring.post('/:id/unpay', zValidator('json', z.object({ month: z.string() }))
   await c.env.DB.prepare('DELETE FROM recurring_payment_logs WHERE id = ?')
     .bind(log.id)
     .run()
+
+  await c.env.SESSIONS.delete(`dashboard:${userId}:${month}`)
 
   return c.json({ ok: true })
 })
